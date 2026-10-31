@@ -1,5 +1,5 @@
 // =========================================================================
-// MODULE 1: CORE STATE, TIME CALIBRATION, UUID & ENCRYPTED VAULT (js/core-state.js — v87)
+// MODULE 1: CORE STATE, TIME CALIBRATION, UUID & ENCRYPTED VAULT (js/core-state.js — v90)
 // =========================================================================
 
 // =========================================================================
@@ -368,15 +368,21 @@ function createEmptyDayObject(d) {
   };
 }
 
+function normalizeFirebaseArrayField(val) {
+  if (Array.isArray(val)) return val.filter(Boolean);
+  if (val && typeof val === 'object') return Object.values(val).filter(Boolean);
+  return [];
+}
+
 function ensureDaysSchemaIntact(daysObj) {
   const target = (daysObj && typeof daysObj === 'object') ? daysObj : {};
   for (let d = 1; d <= 10; d++) {
     if (!target[d] || typeof target[d] !== 'object') {
       target[d] = createEmptyDayObject(d);
     } else {
-      if (!Array.isArray(target[d].sales)) target[d].sales = [];
-      if (!Array.isArray(target[d].pendingSales)) target[d].pendingSales = [];
-      if (!Array.isArray(target[d].expenses)) target[d].expenses = [];
+      target[d].sales = normalizeFirebaseArrayField(target[d].sales);
+      target[d].pendingSales = normalizeFirebaseArrayField(target[d].pendingSales);
+      target[d].expenses = normalizeFirebaseArrayField(target[d].expenses);
       if (target[d].deliveredCash === undefined) target[d].deliveredCash = 0;
       if (target[d].carriedForwardCash === undefined) target[d].carriedForwardCash = 0;
       if (!target[d].dateLabel) target[d].dateLabel = `اليوم ${d}`;
@@ -597,18 +603,32 @@ function isRecordDebtOnlyVoucher(row) {
   );
 }
 
+function isRecordPreWeighing(row) {
+  if (!row || typeof row !== 'object') return false;
+  if (row.status === 'pre_weighing') return true;
+  if (row.isPending && (Number(row.w1) || 0) <= 0) return true;
+  return false;
+}
+
 function sortSalesListByScaleNo(list) {
   if (!Array.isArray(list)) return [];
   return [...list].sort((a, b) => {
+    const aPre = isRecordPreWeighing(a);
+    const bPre = isRecordPreWeighing(b);
+    // تثبيت حركات استلام العهدة قبل الميزان (pre_weighing) مجمعة دائماً في أسفل الجدول
+    if (aPre !== bPre) {
+      return aPre ? 1 : -1;
+    }
     const aDebtOnly = isRecordDebtOnlyVoucher(a);
     const bDebtOnly = isRecordDebtOnlyVoucher(b);
-    // وضع حركات (سند تحصيل مديونية فقط - بدون ميزان) دائماً في آخر الجدول بعد حركات الميزان
+    // وضع حركات (سند تحصيل مديونية فقط - بدون ميزان) بعد حركات الميزان وقبل العهدة المبدئية
     if (aDebtOnly !== bDebtOnly) {
       return aDebtOnly ? 1 : -1;
     }
     const sa = Number(a && (aDebtOnly ? (a.voucherNo || a.scaleNo) : a.scaleNo)) || 0;
     const sb = Number(b && (bDebtOnly ? (b.voucherNo || b.scaleNo) : b.scaleNo)) || 0;
     if (sa > 0 && sb > 0 && sa !== sb) return sa - sb;
+    if ((sa > 0) !== (sb > 0)) return sa > 0 ? -1 : 1;
     return 0;
   });
 }
@@ -729,6 +749,13 @@ function arePendingSalesDuplicate(a, b, ignoreDifferentUUIDs = false) {
   if (sa > 0 && sb > 0 && sa === sb && (ignoreDifferentUUIDs || isSameNumVal(w1a, w1b))) return true;
   const ca = toAsciiDigits(a.carNo || '').trim();
   const cb = toAsciiDigits(b.carNo || '').trim();
+  if (w1a <= 0 && w1b <= 0) {
+    return ca === cb &&
+      isSameNumVal(a.custodyCash, b.custodyCash) &&
+      isSameNumVal(a.custodyTransfer, b.custodyTransfer) &&
+      isSameNumVal(a.cashSales, b.cashSales) &&
+      isSameNumVal(a.debtCash, b.debtCash);
+  }
   return ca === cb && isSameNumVal(w1a, w1b);
 }
 
@@ -867,12 +894,12 @@ function ensureDeletedIdsStructure(obj) {
   const base = { sales: [], pendingSales: [], expenses: [], merchants: [], users: [], farms: [] };
   if (!obj || typeof obj !== 'object') return base;
   return {
-    sales: Array.isArray(obj.sales) ? obj.sales : [],
-    pendingSales: Array.isArray(obj.pendingSales) ? obj.pendingSales : [],
-    expenses: Array.isArray(obj.expenses) ? obj.expenses : [],
-    merchants: Array.isArray(obj.merchants) ? obj.merchants : [],
-    users: Array.isArray(obj.users) ? obj.users : [],
-    farms: Array.isArray(obj.farms) ? obj.farms : []
+    sales: normalizeFirebaseArrayField(obj.sales),
+    pendingSales: normalizeFirebaseArrayField(obj.pendingSales),
+    expenses: normalizeFirebaseArrayField(obj.expenses),
+    merchants: normalizeFirebaseArrayField(obj.merchants),
+    users: normalizeFirebaseArrayField(obj.users),
+    farms: normalizeFirebaseArrayField(obj.farms)
   };
 }
 
