@@ -260,6 +260,10 @@ function renderFarmTrialBalancePrintView() {
   const openActiveSummaries = getOpenAndActiveDashSummaries();
   const filteredSummaries = applyExcelSortAndFilter(openActiveSummaries, DASH_COLUMNS, 'dash');
   const ftb = computeFarmCumulativeTrialBalance(filteredSummaries);
+  const auditFarm = computeAuditComplianceMetrics(null, filteredSummaries);
+  const openCustodyBannerHtml = auditFarm.hasOpenPreWeighing
+    ? `<div style="margin-bottom:6px; padding:5px 8px; background:#be123c; color:#ffffff; border:1.5px solid #881337; border-radius:5px; font-size:9.5px; font-weight:800; text-align:center;">⚠️ تحذير رقابي: توجد سيارات دفعت عهدة ولم تنهِ الميزان. أرقام الميزان لن تتطابق حتى يتم استكمال الفواتير المفتوحة</div>`
+    : '';
   const fName = appState.farmName || 'مزرعة جديدة';
   const printDateStr = new Date().toLocaleDateString('ar-EG', { year: 'numeric', month: 'short', day: 'numeric' });
   const statusTxt = ftb.cumulativeCashBoxDiff === 0
@@ -270,6 +274,7 @@ function renderFarmTrialBalancePrintView() {
 
   printContainer.innerHTML = `
     <div style="border:2px solid #1b365d; border-radius:6px; padding:8px 10px; background:#ffffff; color:#0f172a; font-family:'Cairo',sans-serif;">
+      ${openCustodyBannerHtml}
       <div style="display:flex; align-items:center; justify-content:space-between; border-bottom:2px solid #1b365d; padding-bottom:5px; margin-bottom:8px;">
         <div>
           <div style="font-size:14px; font-weight:800; color:#1b365d;">
@@ -307,48 +312,48 @@ function renderFarmTrialBalancePrintView() {
             <td style="text-align:center; font-weight:800; font-size:9px; padding:4px;">${fmtInt(ftb.activeDaysCount)} يوم | ${fmtInt(ftb.countCars)} سيارة (${fmtInt(ftb.avgCarWeight)} كجم)</td>
             <td style="text-align:right; font-weight:800; font-size:9px; padding:4px; background:#fffbeb;">إجمالي مبيعات المزرعة شامل الإكرامية:</td>
             <td style="text-align:center; font-weight:800; font-size:9px; padding:4px; background:#fffbeb;">${fmtDec(ftb.sumTotalWithTip)} ج.م</td>
-            <td style="text-align:right; font-weight:800; font-size:9px; padding:4px; background:#f0fdfa;">(+) إجمالي نقدي المبيعات (جميع الأيام):</td>
-            <td style="text-align:center; font-weight:800; font-size:9px; padding:4px; background:#f0fdfa;">${fmtInt(ftb.sumCashSales)} ج.م</td>
+            <td style="text-align:right; font-weight:800; font-size:9px; padding:4px; background:#f0fdfa;">(+) نقدية مبيعات اليوم (لحم - كل الأيام):</td>
+            <td style="text-align:center; font-weight:800; font-size:9px; padding:4px; background:#f0fdfa;">${fmtInt(auditFarm.cashMeatToday)} ج.م</td>
           </tr>
           <tr style="background:#f8fafc;">
             <td style="text-align:right; font-weight:700; font-size:9px; padding:4px;">إجمالي السيارات المؤقتة (تحت التحميل):</td>
             <td style="text-align:center; font-weight:800; font-size:9px; padding:4px; color:${ftb.pendingCarsCount > 0 ? '#9f1239' : '#065f46'};">${ftb.pendingCarsCount > 0 ? `⚠️ ${fmtInt(ftb.pendingCarsCount)} سيارة مؤقتة` : '0 سيارة (مكتمل ✓)'}</td>
-            <td style="text-align:right; font-weight:700; font-size:9px; padding:4px;">تحويلات المزرعة الحالية + تحويلات سابقة:</td>
-            <td style="text-align:center; font-weight:800; font-size:9px; padding:4px;">حالية: ${fmtInt(ftb.currentFarmTransfers)} | سابقة: ${fmtInt(ftb.sumPrevTransfer)}</td>
-            <td style="text-align:right; font-weight:700; font-size:9px; padding:4px;">(+) نقدي مديونيات الحالية + نقدي مزارع سابقة:</td>
-            <td style="text-align:center; font-weight:800; font-size:9px; padding:4px;">مديونيات: ${fmtInt(ftb.sumDebtCash)} | سابقة: ${fmtInt(ftb.sumPrevCash)}</td>
+            <td style="text-align:right; font-weight:700; font-size:9px; padding:4px;">إجمالي جميع التحويلات والشيكات بالمزرعة:</td>
+            <td style="text-align:center; font-weight:800; font-size:9px; padding:4px;">${fmtInt(ftb.totalAllTransfers)} ج.م</td>
+            <td style="text-align:right; font-weight:700; font-size:9px; padding:4px;">(+) نقدية محصلة من مديونيات أيام سابقة:</td>
+            <td style="text-align:center; font-weight:800; font-size:9px; padding:4px;">${fmtInt(auditFarm.cashPrevDaysDebt)} ج.م</td>
           </tr>
           <tr>
             <td style="text-align:right; font-weight:700; font-size:9px; padding:4px;">إجمالي الوزنة الثانية (القائم) - الأولى (الفارغ):</td>
             <td style="text-align:center; font-weight:800; font-size:9px; padding:4px;">${fmtInt(ftb.sumW2)} - ${fmtInt(ftb.sumW1)} كجم</td>
-            <td style="text-align:right; font-weight:800; font-size:9px; padding:4px; background:#d1fae5; color:#064e3b;">إجمالي جميع التحويلات والشيكات بالمزرعة:</td>
-            <td style="text-align:center; font-weight:800; font-size:9px; padding:4px; background:#d1fae5; color:#064e3b;">${fmtInt(ftb.totalAllTransfers)} ج.م</td>
-            <td style="text-align:right; font-weight:800; font-size:9px; padding:4px; background:#fef3c7;">(=) إجمالي وارد النقدية التراكمي (قبل المصاريف):</td>
-            <td style="text-align:center; font-weight:800; font-size:9px; padding:4px; background:#fef3c7;">${fmtInt(ftb.totalCashInflowBeforeExpenses)} ج.م</td>
+            <td style="text-align:right; font-weight:800; font-size:9px; padding:4px; background:#fff1f2; color:#881337;">أ) مديونيات مستحقة على التجار (الأرصدة الموجبة - لنا):</td>
+            <td style="text-align:center; font-weight:800; font-size:9px; padding:4px; background:#fff1f2; color:#881337;">${fmtInt(auditFarm.positiveReceivables)} ج.م</td>
+            <td style="text-align:right; font-weight:800; font-size:9px; padding:4px;">(+) نقدية إكراميات محصلة:</td>
+            <td style="text-align:center; font-weight:800; font-size:9px; padding:4px;">${fmtInt(auditFarm.cashTipsCollected)} ج.م</td>
           </tr>
           <tr style="background:#f8fafc;">
             <td style="text-align:right; font-weight:800; font-size:9px; padding:4px; background:#eff6ff;">(=) إجمالي الوزن الصافي التراكمي للمزرعة:</td>
             <td style="text-align:center; font-weight:800; font-size:9px; padding:4px; background:#eff6ff;">${fmtInt(ftb.sumNetW)} كجم</td>
-            <td style="text-align:right; font-weight:700; font-size:9px; padding:4px; color:#115e59;">(+) إجمالي آجل الفواتير (${fmtInt(ftb.sumCreditSales)}) - مسدد المديونية (${fmtInt(ftb.totalDebtCollected)}):</td>
-            <td style="text-align:center; font-weight:800; font-size:9px; padding:4px; color:#115e59;">مسدد: ${fmtInt(ftb.totalDebtCollected)} ج.م</td>
-            <td style="text-align:right; font-weight:700; font-size:9px; padding:4px; color:#9f1239;">(-) يخصم: إجمالي المصروفات والمكافآت (كل الأيام):</td>
-            <td style="text-align:center; font-weight:800; font-size:9px; padding:4px; color:#9f1239;">${fmtInt(ftb.sumExpenses)} ج.م</td>
+            <td style="text-align:right; font-weight:800; font-size:9px; padding:4px; background:#f0f9ff; color:#0c4a6e;">ب) دفعات مقدمة / أرصدة دائنة للتجار (الأرصدة السالبة - علينا):</td>
+            <td style="text-align:center; font-weight:800; font-size:9px; padding:4px; background:#f0f9ff; color:#0c4a6e;">${fmtInt(auditFarm.negativeAdvances)} ج.م</td>
+            <td style="text-align:right; font-weight:700; font-size:9px; padding:4px; color:#0f766e;">(+) عهد مبدئية نقدية (سيارات لم توزن):</td>
+            <td style="text-align:center; font-weight:800; font-size:9px; padding:4px; color:#0f766e;">${fmtInt(auditFarm.cashPreWeighCustody)} ج.م</td>
           </tr>
           <tr>
             <td style="text-align:right; font-weight:700; font-size:9px; padding:4px;">متوسط سعر الكيلو المرجح للمزرعة:</td>
             <td style="text-align:center; font-weight:800; font-size:9px; padding:4px;">${fmtDec(ftb.avgPrice)} ج.م/كجم (إكراميات: ${fmtInt(ftb.sumTip)})</td>
-            <td style="text-align:right; font-weight:800; font-size:9px; padding:4px; background:#eef2ff; color:#1e1b4b;">(=) صافي مديونية المزرعة المتبقية لدى التجار:</td>
+            <td style="text-align:right; font-weight:800; font-size:9px; padding:4px; background:#eef2ff; color:#1e1b4b;">صافي الذمم التراكمي (آجل ${fmtInt(ftb.sumCreditSales)} - مسدد ${fmtInt(ftb.totalDebtCollected)}):</td>
             <td style="text-align:center; font-weight:800; font-size:9px; padding:4px; background:#eef2ff; color:#1e1b4b;">${fmtInt(ftb.closingFarmDebt)} ج.م</td>
-            <td style="text-align:right; font-weight:800; font-size:9px; padding:4px; background:#d1fae5; color:#064e3b;">(=) صافي النقدية التراكمية بالخزنة (بعد المصاريف):</td>
-            <td style="text-align:center; font-weight:800; font-size:9px; padding:4px; background:#d1fae5; color:#064e3b;">${fmtInt(ftb.netCumulativeCashInBox)} ج.م</td>
+            <td style="text-align:right; font-weight:800; font-size:9px; padding:4px; color:#9f1239;">(-) يخصم: مصروفات نقدية:</td>
+            <td style="text-align:center; font-weight:800; font-size:9px; padding:4px; color:#9f1239;">${fmtInt(auditFarm.cashExpenses)} ج.م</td>
           </tr>
           <tr style="background:#f8fafc;">
             <td style="text-align:right; font-weight:800; font-size:9px; padding:4px; background:#d1fae5; color:#064e3b;">فرق ميزان الأوزان التراكمي:</td>
             <td style="text-align:center; font-weight:800; font-size:9px; padding:4px; background:#d1fae5; color:#064e3b;">${fmtInt(ftb.weightAuditDiff)} (${ftb.weightAuditDiff === 0 ? 'مطابق ✓' : 'راجع الوزن!'})</td>
             <td style="text-align:right; font-weight:700; font-size:9px; padding:4px;">مطابقة توازن الفواتير (المسدد والآجل - الفواتير):</td>
             <td style="text-align:center; font-weight:800; font-size:9px; padding:4px;">${fmtDec(ftb.sumInvoiceDiff)} ج.م (${Math.abs(ftb.sumInvoiceDiff) <= 1 ? 'متزنة ✓' : 'فرق توازن!'})</td>
-            <td style="text-align:right; font-weight:800; font-size:9px; padding:4px; background:#eff6ff;">(-) إجمالي المورد للإدارة (${fmtInt(ftb.sumDeliveredCash)}) + مرحّل (${fmtInt(ftb.lastDayCarriedForwardCash)}):</td>
-            <td style="text-align:center; font-weight:800; font-size:9px; padding:4px; background:#eff6ff;">${fmtInt(ftb.totalSettledAndFinalCarry)} ج.م</td>
+            <td style="text-align:right; font-weight:800; font-size:9px; padding:4px; background:#d1fae5; color:#064e3b;">(=) الصافي الواجب تواجده بالدرج:</td>
+            <td style="text-align:center; font-weight:800; font-size:9px; padding:4px; background:#d1fae5; color:#064e3b;">${fmtInt(auditFarm.netDrawerCashRequired)} ج.م</td>
           </tr>
         </tbody>
         <tfoot>
@@ -395,6 +400,10 @@ function renderDailyTrialBalancePrintView() {
   if (!printContainer) return false;
   const d = appState.currentDay || 1;
   const s = computeDaySummary(d);
+  const auditDay = computeAuditComplianceMetrics(d);
+  const openCustodyBannerHtml = auditDay.hasOpenPreWeighing
+    ? `<div style="margin-bottom:6px; padding:5px 8px; background:#be123c; color:#ffffff; border:1.5px solid #881337; border-radius:5px; font-size:9.5px; font-weight:800; text-align:center;">⚠️ تحذير رقابي: توجد سيارات دفعت عهدة ولم تنهِ الميزان. أرقام الميزان لن تتطابق حتى يتم استكمال الفواتير المفتوحة</div>`
+    : '';
   const fName = appState.farmName || 'مزرعة جديدة';
   const printDateStr = new Date().toLocaleDateString('ar-EG', { year: 'numeric', month: 'short', day: 'numeric' });
   const statusTxt = s.cashBoxDiff === 0
@@ -405,6 +414,7 @@ function renderDailyTrialBalancePrintView() {
 
   printContainer.innerHTML = `
     <div style="border:2px solid #1b365d; border-radius:6px; padding:8px 10px; background:#ffffff; color:#0f172a; font-family:'Cairo',sans-serif;">
+      ${openCustodyBannerHtml}
       <div style="display:flex; align-items:center; justify-content:space-between; border-bottom:2px solid #1b365d; padding-bottom:5px; margin-bottom:8px;">
         <div>
           <div style="font-size:14px; font-weight:800; color:#1b365d;">
@@ -442,48 +452,48 @@ function renderDailyTrialBalancePrintView() {
             <td style="text-align:center; font-weight:800; font-size:9px; padding:4px;">${fmtInt(s.countCars)} سيارة (${fmtInt(s.avgCarWeight)} كجم)</td>
             <td style="text-align:right; font-weight:800; font-size:9px; padding:4px; background:#fffbeb;">إجمالي المبيعات شامل الإكرامية:</td>
             <td style="text-align:center; font-weight:800; font-size:9px; padding:4px; background:#fffbeb;">${fmtDec(s.sumTotalWithTip)} ج.م</td>
-            <td style="text-align:right; font-weight:800; font-size:9px; padding:4px; background:#f0fdfa;">(+) رصيد نقدي مرحّل من خزنة أمس:</td>
-            <td style="text-align:center; font-weight:800; font-size:9px; padding:4px; background:#f0fdfa;">${fmtInt(s.openingCashFromPrevDay)} ج.م</td>
+            <td style="text-align:right; font-weight:800; font-size:9px; padding:4px; background:#f0fdfa;">(+) نقدية مبيعات اليوم (لحم):</td>
+            <td style="text-align:center; font-weight:800; font-size:9px; padding:4px; background:#f0fdfa;">${fmtInt(auditDay.cashMeatToday)} ج.م</td>
           </tr>
           <tr style="background:#f8fafc;">
             <td style="text-align:right; font-weight:700; font-size:9px; padding:4px;">السيارات المؤقتة (تحت التحميل - وزنة 1):</td>
             <td style="text-align:center; font-weight:800; font-size:9px; padding:4px; color:${s.pendingCarsCount > 0 ? '#9f1239' : '#065f46'};">${s.pendingCarsCount > 0 ? `⚠️ ${fmtInt(s.pendingCarsCount)} سيارة مؤقتة` : '0 سيارة (مكتمل ✓)'}</td>
-            <td style="text-align:right; font-weight:700; font-size:9px; padding:4px;">غير النقدي يوم البيع + جميع التحويلات:</td>
-            <td style="text-align:center; font-weight:800; font-size:9px; padding:4px;">غير نقدي: ${fmtInt(s.sumCreditSales + s.sumTransferSales)} | تحويلات: ${fmtInt(s.totalAllTransfers)}</td>
-            <td style="text-align:right; font-weight:700; font-size:9px; padding:4px;">(+) نقدي المبيعات + نقدي مديونيات + سابقة:</td>
-            <td style="text-align:center; font-weight:800; font-size:9px; padding:4px;">حالية: ${fmtInt(s.sumCashSales + s.sumDebtCash)} | سابقة: ${fmtInt(s.sumPrevCash)}</td>
+            <td style="text-align:right; font-weight:700; font-size:9px; padding:4px;">إجمالي جميع التحويلات اليوم:</td>
+            <td style="text-align:center; font-weight:800; font-size:9px; padding:4px;">${fmtInt(s.totalAllTransfers)} ج.م</td>
+            <td style="text-align:right; font-weight:700; font-size:9px; padding:4px;">(+) نقدية محصلة من مديونيات أيام سابقة:</td>
+            <td style="text-align:center; font-weight:800; font-size:9px; padding:4px;">${fmtInt(auditDay.cashPrevDaysDebt)} ج.م</td>
           </tr>
           <tr>
             <td style="text-align:right; font-weight:700; font-size:9px; padding:4px;">إجمالي الوزنة الثانية (القائم) - الأولى (الفارغ):</td>
             <td style="text-align:center; font-weight:800; font-size:9px; padding:4px;">${fmtInt(s.sumW2)} - ${fmtInt(s.sumW1)} كجم</td>
-            <td style="text-align:right; font-weight:700; font-size:9px; padding:4px; color:#312e81;">مديونية أول اليوم (مرحّلة من الأيام السابقة):</td>
-            <td style="text-align:center; font-weight:800; font-size:9px; padding:4px; color:#312e81;">${fmtInt(s.openingDayDebt)} ج.م</td>
-            <td style="text-align:right; font-weight:800; font-size:9px; padding:4px; background:#fef3c7;">إجمالي وارد النقدية اليوم (قبل المصاريف):</td>
-            <td style="text-align:center; font-weight:800; font-size:9px; padding:4px; background:#fef3c7;">${fmtInt(s.totalCashBeforeExpenses)} ج.م</td>
+            <td style="text-align:right; font-weight:800; font-size:9px; padding:4px; background:#fff1f2; color:#881337;">أ) مديونيات مستحقة على التجار (الأرصدة الموجبة - لنا):</td>
+            <td style="text-align:center; font-weight:800; font-size:9px; padding:4px; background:#fff1f2; color:#881337;">${fmtInt(auditDay.positiveReceivables)} ج.م</td>
+            <td style="text-align:right; font-weight:800; font-size:9px; padding:4px;">(+) نقدية إكراميات محصلة:</td>
+            <td style="text-align:center; font-weight:800; font-size:9px; padding:4px;">${fmtInt(auditDay.cashTipsCollected)} ج.م</td>
           </tr>
           <tr style="background:#f8fafc;">
             <td style="text-align:right; font-weight:800; font-size:9px; padding:4px; background:#eff6ff;">(=) صافي الوزن المحسوب:</td>
             <td style="text-align:center; font-weight:800; font-size:9px; padding:4px; background:#eff6ff;">${fmtInt(s.sumNetW)} كجم</td>
-            <td style="text-align:right; font-weight:700; font-size:9px; padding:4px; color:#115e59;">(+) آجل اليوم (${fmtInt(s.sumCreditSales)}) - سداد المديونية (${fmtInt(s.dayDebtCollected)}):</td>
-            <td style="text-align:center; font-weight:800; font-size:9px; padding:4px; color:#115e59;">${fmtInt(s.netDayDebtChange)} ج.م</td>
-            <td style="text-align:right; font-weight:700; font-size:9px; padding:4px; color:#9f1239;">(-) يخصم: إجمالي المصروفات والمكافآت:</td>
-            <td style="text-align:center; font-weight:800; font-size:9px; padding:4px; color:#9f1239;">${fmtInt(s.sumExpenses)} ج.م</td>
+            <td style="text-align:right; font-weight:800; font-size:9px; padding:4px; background:#f0f9ff; color:#0c4a6e;">ب) دفعات مقدمة / أرصدة دائنة للتجار (الأرصدة السالبة - علينا):</td>
+            <td style="text-align:center; font-weight:800; font-size:9px; padding:4px; background:#f0f9ff; color:#0c4a6e;">${fmtInt(auditDay.negativeAdvances)} ج.م</td>
+            <td style="text-align:right; font-weight:700; font-size:9px; padding:4px; color:#0f766e;">(+) عهد مبدئية نقدية (سيارات لم توزن):</td>
+            <td style="text-align:center; font-weight:800; font-size:9px; padding:4px; color:#0f766e;">${fmtInt(auditDay.cashPreWeighCustody)} ج.م</td>
           </tr>
           <tr>
             <td style="text-align:right; font-weight:700; font-size:9px; padding:4px;">متوسط سعر الكيلو المرجح لليوم:</td>
             <td style="text-align:center; font-weight:800; font-size:9px; padding:4px;">${fmtDec(s.avgPrice)} ج.م/كجم</td>
-            <td style="text-align:right; font-weight:800; font-size:9px; padding:4px; background:#eef2ff; color:#1e1b4b;">(=) صافي مديونية المزرعة آخر اليوم:</td>
+            <td style="text-align:right; font-weight:800; font-size:9px; padding:4px; background:#eef2ff; color:#1e1b4b;">حركة اليوم (أول ${fmtInt(s.openingDayDebt)} + آجل ${fmtInt(s.sumCreditSales)} - سداد ${fmtInt(s.dayDebtCollected)}):</td>
             <td style="text-align:center; font-weight:800; font-size:9px; padding:4px; background:#eef2ff; color:#1e1b4b;">${fmtInt(s.closingDayDebt)} ج.م</td>
-            <td style="text-align:right; font-weight:800; font-size:9px; padding:4px; background:#d1fae5; color:#064e3b;">(=) إجمالي النقدية المتاحة بالخزنة (شامل المرحّل):</td>
-            <td style="text-align:center; font-weight:800; font-size:9px; padding:4px; background:#d1fae5; color:#064e3b;">${fmtInt(s.totalAvailableCashInBox)} ج.م</td>
+            <td style="text-align:right; font-weight:800; font-size:9px; padding:4px; color:#9f1239;">(-) يخصم: مصروفات نقدية:</td>
+            <td style="text-align:center; font-weight:800; font-size:9px; padding:4px; color:#9f1239;">${fmtInt(auditDay.cashExpenses)} ج.م</td>
           </tr>
           <tr style="background:#f8fafc;">
             <td style="text-align:right; font-weight:800; font-size:9px; padding:4px; background:#d1fae5; color:#064e3b;">فرق ميزان الأوزان:</td>
             <td style="text-align:center; font-weight:800; font-size:9px; padding:4px; background:#d1fae5; color:#064e3b;">${fmtInt(s.weightAuditDiff)} (${s.weightAuditDiff === 0 ? 'مطابق ✓' : 'راجع الوزن!'})</td>
             <td style="text-align:right; font-weight:700; font-size:9px; padding:4px;">مطابقة توازن الفواتير (المسدد والآجل - الفواتير):</td>
             <td style="text-align:center; font-weight:800; font-size:9px; padding:4px;">${fmtDec(s.sumInvoiceDiff)} ج.م (${Math.abs(s.sumInvoiceDiff) <= 1 ? 'متزنة ✓' : 'فرق توازن!'})</td>
-            <td style="text-align:right; font-weight:800; font-size:9px; padding:4px; background:#eff6ff;">(-) المورد للإدارة (${fmtInt(s.deliveredCash)}) + مرحّل للغد (${fmtInt(s.carriedForwardCash)}):</td>
-            <td style="text-align:center; font-weight:800; font-size:9px; padding:4px; background:#eff6ff;">${fmtInt(s.totalSettledAndCarriedCash)} ج.م</td>
+            <td style="text-align:right; font-weight:800; font-size:9px; padding:4px; background:#d1fae5; color:#064e3b;">(=) الصافي الواجب تواجده بالدرج:</td>
+            <td style="text-align:center; font-weight:800; font-size:9px; padding:4px; background:#d1fae5; color:#064e3b;">${fmtInt(auditDay.netDrawerCashRequired)} ج.م</td>
           </tr>
         </tbody>
         <tfoot>
