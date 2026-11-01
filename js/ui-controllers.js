@@ -1,5 +1,5 @@
 // =========================================================================
-// MODULE 6: UI RENDERING, TABLE FILTERS, LITE MODE & CONTROLLERS (js/ui-controllers.js — v90)
+// MODULE 6: UI RENDERING, TABLE FILTERS, LITE MODE & CONTROLLERS (js/ui-controllers.js — v91)
 // =========================================================================
 
 // =========================================================================
@@ -346,100 +346,27 @@ function renderDailyView() {
     </div>
   `;
 
-  const auditDay = computeAuditComplianceMetrics(d);
-  let dailyWarnBannerEl = document.getElementById('dailyTbOpenCustodyWarningBanner');
-  if (!dailyWarnBannerEl) {
-    const dailyTbCard = document.getElementById('dailyTrialBalanceCard');
-    const dailyGrid = dailyTbCard ? dailyTbCard.querySelector('.grid') : null;
-    if (dailyTbCard && dailyGrid) {
-      dailyWarnBannerEl = document.createElement('div');
-      dailyWarnBannerEl.id = 'dailyTbOpenCustodyWarningBanner';
-      dailyTbCard.insertBefore(dailyWarnBannerEl, dailyGrid);
-    }
-  }
-  if (dailyWarnBannerEl) {
-    if (auditDay.hasOpenPreWeighing) {
-      dailyWarnBannerEl.className = 'mx-3.5 mt-3 p-3 rounded-xl bg-rose-700 text-white font-extrabold text-xs md:text-sm shadow-md border-2 border-rose-900 flex items-center justify-center text-center';
-      dailyWarnBannerEl.textContent = '⚠️ تحذير رقابي: توجد سيارات دفعت عهدة ولم تنهِ الميزان. أرقام الميزان لن تتطابق حتى يتم استكمال الفواتير المفتوحة';
-    } else {
-      dailyWarnBannerEl.className = 'hidden';
-      dailyWarnBannerEl.textContent = '';
-    }
-  }
-
-  const invBalancedOk = Math.abs(summary.sumInvoiceDiff) <= 1;
-  document.getElementById('tbPillar2').innerHTML = `
-    <div class="flex justify-between py-1 border-b bg-amber-50 px-1.5 rounded font-extrabold"><span>إجمالي المبيعات شامل الإكرامية:</span><span>${fmtDec(summary.sumTotalWithTip)} ج.م</span></div>
-    <div class="flex justify-between py-1 border-b"><span>صافي قيمة اللحم (بدون إكرامية) | الإكراميات:</span><strong>لحم: ${fmtDec(summary.sumBase)} | إكرامية: ${fmtInt(summary.sumTip)}</strong></div>
-    <div class="flex justify-between py-1 border-b text-teal-900"><span>تحويلات المزرعة الحالية (مبيعات+مديونيات):</span><strong>${fmtInt(summary.currentFarmTransfers)} ج.م</strong></div>
-    <div class="flex justify-between py-1 border-b text-purple-900"><span>تحويلات مزارع سابقة (لا تخصم من الحالية):</span><strong>${fmtInt(summary.sumPrevTransfer)} ج.م</strong></div>
-    <div class="flex justify-between p-1.5 rounded bg-emerald-100 text-emerald-950 font-extrabold">
-      <span>إجمالي جميع التحويلات اليوم:</span>
-      <span>${fmtInt(summary.totalAllTransfers)} ج.م</span>
-    </div>
-    <div class="flex justify-between p-1.5 rounded border ${invBalancedOk ? 'bg-slate-50 border-slate-200 text-emerald-900' : 'bg-rose-50 border-rose-300 text-rose-900'} font-extrabold text-[11px]">
-      <span>مطابقة توازن الفواتير (المسدد والآجل - الفواتير):</span>
-      <span>${fmtDec(summary.sumInvoiceDiff)} ج.م (${invBalancedOk ? 'فواتير متزنة ✓' : '⚠️ فرق توازن!'})</span>
-    </div>
-    <!-- حركة الذمم مع تطبيق قاعدة منع المقاصة (No-Offsetting) -->
-    <div class="mt-1.5 p-2 rounded-xl bg-indigo-50/80 border border-indigo-200 space-y-1 text-[11px]">
-      <div class="font-extrabold text-indigo-950 border-b border-indigo-200 pb-1 flex items-center justify-between">
-        <span>📌 حركة الذمم والمديونية اليومية (منع المقاصة - No-Offsetting):</span>
-        <span class="text-[10px] px-1.5 py-0.5 rounded bg-indigo-900 text-amber-300">معايير المراجعة</span>
-      </div>
-      <div class="flex justify-between text-slate-700">
-        <span>مديونية أول اليوم | (+) آجل اليوم | (-) مسدد اليوم:</span>
-        <strong>${fmtInt(summary.openingDayDebt)} | +${fmtInt(summary.sumCreditSales)} | -${fmtInt(summary.dayDebtCollected)}</strong>
-      </div>
-      <div class="flex justify-between py-1 px-1.5 rounded bg-rose-50 border border-rose-200 text-rose-950 font-extrabold">
-        <span>أ) مديونيات مستحقة على التجار (الأرصدة الموجبة - لنا):</span>
-        <span>${fmtInt(auditDay.positiveReceivables)} ج.م</span>
-      </div>
-      <div class="flex justify-between py-1 px-1.5 rounded bg-sky-50 border border-sky-200 text-sky-950 font-extrabold">
-        <span>ب) دفعات مقدمة / أرصدة دائنة للتجار (الأرصدة السالبة - علينا):</span>
-        <span>${fmtInt(auditDay.negativeAdvances)} ج.م</span>
-      </div>
-    </div>
-  `;
+  renderDailySummary(summary, d);
 
   document.getElementById('tbPillar3').innerHTML = `
-    <div class="border border-emerald-300 rounded-lg overflow-hidden">
-      <div class="bg-emerald-800 text-amber-200 px-2 py-1 text-[11px] font-extrabold text-center">
-        💵 بيان تصفية الخزينة الفعلي (الكاش المادي فقط - Cash Drawer)
-      </div>
-      <table class="w-full text-[11px] text-right border-collapse">
-        <tbody class="divide-y divide-slate-200">
-          ${auditDay.openingCarryCash > 0 ? `
-          <tr class="bg-teal-50/80 font-extrabold text-teal-950">
-            <td class="p-1.5">(+) رصيد نقدي مرحّل من خزنة أمس${d > 1 ? ` (يوم ${d - 1})` : ''}:</td>
-            <td class="p-1.5 text-left">${fmtInt(auditDay.openingCarryCash)} ج.م</td>
-          </tr>` : ''}
-          <tr class="bg-white">
-            <td class="p-1.5 font-bold">(+) نقدية مبيعات اليوم (لحم):</td>
-            <td class="p-1.5 text-left font-extrabold text-slate-900">${fmtInt(auditDay.cashMeatToday)} ج.م</td>
-          </tr>
-          <tr class="bg-slate-50/70">
-            <td class="p-1.5 font-bold">(+) نقدية محصلة من مديونيات أيام سابقة:</td>
-            <td class="p-1.5 text-left font-extrabold text-teal-900">${fmtInt(auditDay.cashPrevDaysDebt)} ج.م</td>
-          </tr>
-          <tr class="bg-white">
-            <td class="p-1.5 font-bold">(+) نقدية إكراميات محصلة:</td>
-            <td class="p-1.5 text-left font-extrabold text-indigo-900">${fmtInt(auditDay.cashTipsCollected)} ج.م</td>
-          </tr>
-          <tr class="bg-teal-50/60">
-            <td class="p-1.5 font-bold text-teal-950">(+) عهد مبدئية نقدية (سيارات لم توزن):</td>
-            <td class="p-1.5 text-left font-extrabold text-teal-950">${fmtInt(auditDay.cashPreWeighCustody)} ج.م</td>
-          </tr>
-          <tr class="bg-rose-50/70 text-rose-900">
-            <td class="p-1.5 font-extrabold">(-) يخصم: مصروفات نقدية:</td>
-            <td class="p-1.5 text-left font-extrabold">${fmtInt(auditDay.cashExpenses)} ج.م</td>
-          </tr>
-          <tr class="bg-emerald-100 text-emerald-950 font-extrabold text-xs border-t-2 border-emerald-600">
-            <td class="p-2">(=) الصافي الواجب تواجده بالدرج:</td>
-            <td class="p-2 text-left">${fmtInt(auditDay.netDrawerCashRequired)} ج.م</td>
-          </tr>
-        </tbody>
-      </table>
+    <div class="flex justify-between py-1 px-1.5 rounded ${summary.openingCashFromPrevDay > 0 ? 'bg-teal-100/90 text-teal-950 border border-teal-300 font-extrabold' : 'border-b text-slate-600'}">
+      <span>(+) رصيد نقدي مرحّل من خزنة أمس${d > 1 ? ` (يوم ${d - 1})` : ''}:</span>
+      <strong>${fmtInt(summary.openingCashFromPrevDay)} ج.م</strong>
+    </div>
+    <div class="flex justify-between py-1 border-b"><span>(+) نقدي المبيعات + نقدي مديونيات الحالية:</span><strong>${fmtInt(summary.sumCashSales + summary.sumDebtCash)} ج.م</strong></div>
+    <div class="flex justify-between py-1 border-b"><span>(+) نقدي مزارع سابقة (للخزنة فقط):</span><strong>${fmtInt(summary.sumPrevCash)} ج.م</strong></div>
+    <div class="flex justify-between py-1 px-1.5 rounded bg-amber-100 text-slate-950 font-extrabold">
+      <span>إجمالي وارد النقدية اليوم (قبل المصاريف):</span>
+      <span>${fmtInt(summary.totalCashBeforeExpenses)} ج.م</span>
+    </div>
+    <div class="flex justify-between py-1 border-b text-rose-800 font-bold"><span>(-) يخصم: إجمالي المصروفات والمكافآت:</span><span>${fmtInt(summary.sumExpenses)} ج.م</span></div>
+    <div class="flex justify-between py-1 border-b text-slate-800 font-extrabold">
+      <span>(=) صافي نقدية حركات اليوم (بعد المصاريف):</span>
+      <span>${fmtInt(summary.netCashInBox)} ج.م</span>
+    </div>
+    <div class="flex justify-between py-1.5 px-2 rounded-lg bg-emerald-100 border border-emerald-400 text-emerald-950 font-extrabold">
+      <span>(=) إجمالي النقدية المتاحة بالخزنة (شامل المرحّل):</span>
+      <span>${fmtInt(summary.totalAvailableCashInBox)} ج.م</span>
     </div>
   `;
 
@@ -594,6 +521,353 @@ const MERCH_COLUMNS = [
   { key: 'prevAll', label: 'مزارع سابقة (نقدي+تحويل)', type: 'number', getVal: m => m.prevAll, getDisp: m => fmtInt(m.prevAll), thClass: 'bg-purple-900 text-white' }
 ];
 
+
+// =========================================================================
+// PROGRESSIVE DISCLOSURE ACCORDION RENDERERS (v91: Daily & Full Farm Summary)
+// =========================================================================
+function renderDailySummary(summary, dayNum = appState.currentDay) {
+  const s = summary || computeDaySummary(dayNum || appState.currentDay || 1);
+  const rows = Array.isArray(s.rows) ? s.rows : [];
+
+  // 1. متغيرات ومعادلات الاستخراج المحاسبي الدقيقة (Filter & Reduce) لليوم الواحد
+  const totalTips = roundMoney2(
+    rows.reduce((acc, r) => acc + (Number(r.tip) || 0), 0)
+  );
+  const totalSalesWithTip = roundMoney2(
+    rows.reduce((acc, r) => acc + (Number(r.totalWithTip) || 0), 0)
+  );
+  const totalMeatSales = roundMoney2(totalSalesWithTip - totalTips);
+
+  const cashForTodaySales = roundMoney2(
+    rows
+      .filter(r => !r.isDebtCollectionOnly && (Number(r.cashSales) || 0) > 0)
+      .reduce((acc, r) => acc + (Number(r.cashSales) || 0), 0)
+  );
+
+  const cashForOldDebts = roundMoney2(
+    rows
+      .filter(r => (Number(r.debtCash) || 0) > 0)
+      .reduce((acc, r) => acc + (Number(r.debtCash) || 0), 0)
+  );
+
+  const bankTransfersForToday = roundMoney2(
+    rows
+      .filter(r => !r.isDebtCollectionOnly && (Number(r.transferSales) || 0) > 0)
+      .reduce((acc, r) => acc + (Number(r.transferSales) || 0), 0)
+  );
+
+  const todayCredit = roundMoney2(
+    rows
+      .filter(r => !r.isDebtCollectionOnly && (Number(r.creditSales) || 0) > 0)
+      .reduce((acc, r) => acc + (Number(r.creditSales) || 0), 0)
+  );
+
+  const debtTransfersToday = roundMoney2(
+    rows
+      .filter(r => (Number(r.debtTransfer) || 0) > 0)
+      .reduce((acc, r) => acc + (Number(r.debtTransfer) || 0), 0)
+  );
+
+  const prevTransfersToday = roundMoney2(
+    rows
+      .filter(r => (Number(r.prevTransfer) || 0) > 0)
+      .reduce((acc, r) => acc + (Number(r.prevTransfer) || 0), 0)
+  );
+
+  const totalInvoiceCoverage = roundMoney2(cashForTodaySales + bankTransfersForToday + todayCredit);
+  const nonCashToday = roundMoney2(todayCredit + bankTransfersForToday);
+  const invoiceBalanceDiff = roundMoney2(totalInvoiceCoverage - totalSalesWithTip);
+  const isInvoicesBalanced = Math.abs(invoiceBalanceDiff) === 0;
+
+  const currentFarmTransfers = roundMoney2(bankTransfersForToday + debtTransfersToday);
+  const totalAllTransfers = roundMoney2(currentFarmTransfers + prevTransfersToday);
+
+  const openingDebt = roundMoney2(Number(s.openingDayDebt) || 0);
+  const collectedDebtToday = roundMoney2(cashForOldDebts + debtTransfersToday);
+  const closingDebt = roundMoney2(openingDebt + todayCredit - collectedDebtToday);
+
+  const p2El = document.getElementById('tbPillar2');
+  if (!p2El) return;
+
+  p2El.innerHTML = `
+    <div class="space-y-2 text-xs">
+      <!-- القسم الأول: إيرادات المبيعات -->
+      <details class="acc-balance-card group border border-amber-300 rounded-xl bg-amber-50/70 overflow-hidden" open>
+        <summary class="acc-balance-summary flex items-center justify-between px-2.5 py-2 cursor-pointer select-none font-extrabold text-amber-950 bg-amber-100/80 hover:bg-amber-200/70 transition-colors">
+          <span class="flex items-center gap-1.5">
+            <span class="acc-chevron inline-block transition-transform duration-200">▶</span>
+            <span>(=) إجمالي المبيعات شامل الإكرامية:</span>
+          </span>
+          <span class="text-sm font-black">${fmtDec(totalSalesWithTip)} ج.م</span>
+        </summary>
+        <div class="p-2.5 bg-white space-y-1.5 border-t border-amber-200 text-[11px]">
+          <div class="flex justify-between py-1 border-b border-slate-100">
+            <span class="text-slate-700 font-bold">قيمة مبيعات اللحم (بدون إكرامية):</span>
+            <strong class="text-slate-900">${fmtDec(totalMeatSales)} ج.م</strong>
+          </div>
+          <div class="flex justify-between py-1">
+            <span class="text-amber-900 font-bold">(+) إجمالي الإكراميات المضافة لليوم:</span>
+            <strong class="text-amber-950">${fmtDec(totalTips)} ج.م</strong>
+          </div>
+        </div>
+      </details>
+
+      <!-- القسم الثاني: تغطية الفواتير -->
+      <details class="acc-balance-card group border ${isInvoicesBalanced ? 'border-slate-300 bg-slate-50/70' : 'border-rose-400 bg-rose-50/70'} rounded-xl overflow-hidden">
+        <summary class="acc-balance-summary flex items-center justify-between px-2.5 py-2 cursor-pointer select-none font-extrabold ${isInvoicesBalanced ? 'text-slate-900 bg-slate-200/70 hover:bg-slate-300/60' : 'text-rose-950 bg-rose-200/80 hover:bg-rose-300/70'} transition-colors">
+          <span class="flex items-center gap-1.5">
+            <span class="acc-chevron inline-block transition-transform duration-200">▶</span>
+            <span>تغطية الفواتير (كيف تم السداد؟):</span>
+          </span>
+          <span class="text-sm font-black ${!isInvoicesBalanced ? 'text-rose-700' : ''}">${fmtDec(totalInvoiceCoverage)} ج.م ${!isInvoicesBalanced ? '⚠️' : ''}</span>
+        </summary>
+        <div class="p-2.5 bg-white space-y-1.5 border-t border-slate-200 text-[11px]">
+          <div class="flex justify-between py-1 border-b border-slate-100">
+            <span class="text-emerald-900 font-bold">المسدد نقداً (مبيعات فقط):</span>
+            <strong class="text-emerald-950">${fmtInt(cashForTodaySales)} ج.م</strong>
+          </div>
+          <div class="flex justify-between py-1 border-b border-slate-100">
+            <span class="text-teal-900 font-bold">المسدد بتحويل بنكي (مبيعات فقط):</span>
+            <strong class="text-teal-950">${fmtInt(bankTransfersForToday)} ج.م</strong>
+          </div>
+          <div class="flex justify-between py-1 border-b border-slate-100">
+            <span class="text-amber-900 font-bold">المتبقي آجل (يضاف للمديونية):</span>
+            <strong class="text-amber-950">${fmtInt(todayCredit)} ج.م</strong>
+          </div>
+          <div class="flex justify-between py-1 border-b border-slate-100 bg-slate-50 px-1.5 rounded">
+            <span class="text-slate-700 font-bold">إجمالي غير النقدي (آجل+تحويل):</span>
+            <strong class="text-slate-900">${fmtInt(nonCashToday)} ج.م</strong>
+          </div>
+          <div class="flex justify-between p-1.5 rounded border font-extrabold ${isInvoicesBalanced ? 'bg-emerald-50 border-emerald-200 text-emerald-900' : 'bg-rose-100 border-rose-400 text-rose-900'}">
+            <span>مطابقة توازن الفواتير:</span>
+            <span>${fmtDec(invoiceBalanceDiff)} ج.م (${isInvoicesBalanced ? 'فواتير متزنة ✓' : '⚠️ فرق توازن!'})</span>
+          </div>
+        </div>
+      </details>
+
+      <!-- القسم الثالث: حركة التحويلات البنكية -->
+      <details class="acc-balance-card group border border-emerald-300 rounded-xl bg-emerald-50/60 overflow-hidden">
+        <summary class="acc-balance-summary flex items-center justify-between px-2.5 py-2 cursor-pointer select-none font-extrabold text-emerald-950 bg-emerald-100/80 hover:bg-emerald-200/70 transition-colors">
+          <span class="flex items-center gap-1.5">
+            <span class="acc-chevron inline-block transition-transform duration-200">▶</span>
+            <span>(=) إجمالي جميع التحويلات:</span>
+          </span>
+          <span class="text-sm font-black">${fmtInt(totalAllTransfers)} ج.م</span>
+        </summary>
+        <div class="p-2.5 bg-white space-y-1.5 border-t border-emerald-200 text-[11px]">
+          <div class="flex justify-between py-1 border-b border-slate-100 text-teal-900">
+            <span class="font-bold">تحويلات المزرعة الحالية (مبيعات ${fmtInt(bankTransfersForToday)} + مديونيات ${fmtInt(debtTransfersToday)}):</span>
+            <strong>${fmtInt(currentFarmTransfers)} ج.م</strong>
+          </div>
+          <div class="flex justify-between py-1 text-purple-900">
+            <span class="font-bold">تحويلات مزارع سابقة (لا تخصم من الحالية):</span>
+            <strong>${fmtInt(prevTransfersToday)} ج.م</strong>
+          </div>
+        </div>
+      </details>
+
+      <!-- القسم الرابع: حركة الذمم والمديونية آخر الفترة -->
+      <details class="acc-balance-card group border border-indigo-300 rounded-xl bg-indigo-50/70 overflow-hidden" open>
+        <summary class="acc-balance-summary flex items-center justify-between px-2.5 py-2 cursor-pointer select-none font-extrabold text-indigo-950 bg-indigo-100/80 hover:bg-indigo-200/70 transition-colors">
+          <span class="flex items-center gap-1.5">
+            <span class="acc-chevron inline-block transition-transform duration-200">▶</span>
+            <span>(=) صافي المديونية آخر الفترة:</span>
+          </span>
+          <span class="text-sm font-black">${fmtInt(closingDebt)} ج.م</span>
+        </summary>
+        <div class="p-2.5 bg-white space-y-1.5 border-t border-indigo-200 text-[11px]">
+          <div class="flex justify-between py-1 border-b border-slate-100 text-slate-700">
+            <span class="font-bold">مديونية أول الفترة (مرحلة):</span>
+            <strong>${fmtInt(openingDebt)} ج.م</strong>
+          </div>
+          <div class="flex justify-between py-1 border-b border-slate-100 text-amber-950">
+            <span class="font-bold">(+) آجل الفواتير المضاف:</span>
+            <strong>${fmtInt(todayCredit)} ج.م</strong>
+          </div>
+          <div class="flex justify-between py-1 text-teal-900">
+            <span class="font-bold">(-) مسدد المديونية نقدي+تحويل (نقدي ${fmtInt(cashForOldDebts)} + تحويل ${fmtInt(debtTransfersToday)}):</span>
+            <strong>${fmtInt(collectedDebtToday)} ج.م</strong>
+          </div>
+        </div>
+      </details>
+    </div>
+  `;
+}
+
+function renderFullFarmSummary(summariesList = null, precomputedFtb = null) {
+  const list = Array.isArray(summariesList) ? summariesList : getOpenAndActiveDashSummaries();
+  const allRows = list.reduce((acc, daySummary) => {
+    if (Array.isArray(daySummary.rows)) {
+      return acc.concat(daySummary.rows);
+    }
+    return acc;
+  }, []);
+
+  // 1. متغيرات ومعادلات الاستخراج المحاسبي الدقيقة (Filter & Reduce) للميزان التراكمي الكامل للمزرعة
+  const totalTips = roundMoney2(
+    allRows.reduce((acc, r) => acc + (Number(r.tip) || 0), 0)
+  );
+  const totalSalesWithTip = roundMoney2(
+    allRows.reduce((acc, r) => acc + (Number(r.totalWithTip) || 0), 0)
+  );
+  const totalMeatSales = roundMoney2(totalSalesWithTip - totalTips);
+
+  const cashForTodaySales = roundMoney2(
+    allRows
+      .filter(r => !r.isDebtCollectionOnly && (Number(r.cashSales) || 0) > 0)
+      .reduce((acc, r) => acc + (Number(r.cashSales) || 0), 0)
+  );
+
+  const cashForOldDebts = roundMoney2(
+    allRows
+      .filter(r => (Number(r.debtCash) || 0) > 0)
+      .reduce((acc, r) => acc + (Number(r.debtCash) || 0), 0)
+  );
+
+  const bankTransfersForToday = roundMoney2(
+    allRows
+      .filter(r => !r.isDebtCollectionOnly && (Number(r.transferSales) || 0) > 0)
+      .reduce((acc, r) => acc + (Number(r.transferSales) || 0), 0)
+  );
+
+  const todayCredit = roundMoney2(
+    allRows
+      .filter(r => !r.isDebtCollectionOnly && (Number(r.creditSales) || 0) > 0)
+      .reduce((acc, r) => acc + (Number(r.creditSales) || 0), 0)
+  );
+
+  const debtTransfersAllDays = roundMoney2(
+    allRows
+      .filter(r => (Number(r.debtTransfer) || 0) > 0)
+      .reduce((acc, r) => acc + (Number(r.debtTransfer) || 0), 0)
+  );
+
+  const prevTransfersAllDays = roundMoney2(
+    allRows
+      .filter(r => (Number(r.prevTransfer) || 0) > 0)
+      .reduce((acc, r) => acc + (Number(r.prevTransfer) || 0), 0)
+  );
+
+  const totalInvoiceCoverage = roundMoney2(cashForTodaySales + bankTransfersForToday + todayCredit);
+  const nonCashAllDays = roundMoney2(todayCredit + bankTransfersForToday);
+  const invoiceBalanceDiff = roundMoney2(totalInvoiceCoverage - totalSalesWithTip);
+  const isInvoicesBalanced = Math.abs(invoiceBalanceDiff) === 0;
+
+  const currentFarmTransfers = roundMoney2(bankTransfersForToday + debtTransfersAllDays);
+  const totalAllTransfers = roundMoney2(currentFarmTransfers + prevTransfersAllDays);
+
+  const openingFarmDebt = 0;
+  const collectedDebtAllDays = roundMoney2(cashForOldDebts + debtTransfersAllDays);
+  const closingFarmDebt = roundMoney2(openingFarmDebt + todayCredit - collectedDebtAllDays);
+
+  const p2El = document.getElementById('farmTbPillar2');
+  if (!p2El) return;
+
+  p2El.innerHTML = `
+    <div class="space-y-2 text-xs">
+      <!-- القسم الأول: إيرادات المبيعات التراكمية -->
+      <details class="acc-balance-card group border border-amber-300 rounded-xl bg-amber-50/70 overflow-hidden" open>
+        <summary class="acc-balance-summary flex items-center justify-between px-2.5 py-2 cursor-pointer select-none font-extrabold text-amber-950 bg-amber-100/80 hover:bg-amber-200/70 transition-colors">
+          <span class="flex items-center gap-1.5">
+            <span class="acc-chevron inline-block transition-transform duration-200">▶</span>
+            <span>(=) إجمالي المبيعات شامل الإكرامية:</span>
+          </span>
+          <span class="text-sm font-black">${fmtDec(totalSalesWithTip)} ج.م</span>
+        </summary>
+        <div class="p-2.5 bg-white space-y-1.5 border-t border-amber-200 text-[11px]">
+          <div class="flex justify-between py-1 border-b border-slate-100">
+            <span class="text-slate-700 font-bold">قيمة مبيعات اللحم (بدون إكرامية):</span>
+            <strong class="text-slate-900">${fmtDec(totalMeatSales)} ج.م</strong>
+          </div>
+          <div class="flex justify-between py-1">
+            <span class="text-amber-900 font-bold">(+) إجمالي الإكراميات:</span>
+            <strong class="text-amber-950">${fmtDec(totalTips)} ج.م</strong>
+          </div>
+        </div>
+      </details>
+
+      <!-- القسم الثاني: تغطية الفواتير التراكمية -->
+      <details class="acc-balance-card group border ${isInvoicesBalanced ? 'border-slate-300 bg-slate-50/70' : 'border-rose-400 bg-rose-50/70'} rounded-xl overflow-hidden">
+        <summary class="acc-balance-summary flex items-center justify-between px-2.5 py-2 cursor-pointer select-none font-extrabold ${isInvoicesBalanced ? 'text-slate-900 bg-slate-200/70 hover:bg-slate-300/60' : 'text-rose-950 bg-rose-200/80 hover:bg-rose-300/70'} transition-colors">
+          <span class="flex items-center gap-1.5">
+            <span class="acc-chevron inline-block transition-transform duration-200">▶</span>
+            <span>تغطية الفواتير (كيف تم السداد؟):</span>
+          </span>
+          <span class="text-sm font-black ${!isInvoicesBalanced ? 'text-rose-700' : ''}">${fmtDec(totalInvoiceCoverage)} ج.م ${!isInvoicesBalanced ? '⚠️' : ''}</span>
+        </summary>
+        <div class="p-2.5 bg-white space-y-1.5 border-t border-slate-200 text-[11px]">
+          <div class="flex justify-between py-1 border-b border-slate-100">
+            <span class="text-emerald-900 font-bold">المسدد نقداً (مبيعات فقط):</span>
+            <strong class="text-emerald-950">${fmtInt(cashForTodaySales)} ج.م</strong>
+          </div>
+          <div class="flex justify-between py-1 border-b border-slate-100">
+            <span class="text-teal-900 font-bold">المسدد بتحويل بنكي (مبيعات فقط):</span>
+            <strong class="text-teal-950">${fmtInt(bankTransfersForToday)} ج.م</strong>
+          </div>
+          <div class="flex justify-between py-1 border-b border-slate-100">
+            <span class="text-amber-900 font-bold">المتبقي آجل:</span>
+            <strong class="text-amber-950">${fmtInt(todayCredit)} ج.م</strong>
+          </div>
+          <div class="flex justify-between py-1 border-b border-slate-100 bg-slate-50 px-1.5 rounded">
+            <span class="text-slate-700 font-bold">إجمالي غير النقدي (آجل+تحويل):</span>
+            <strong class="text-slate-900">${fmtInt(nonCashAllDays)} ج.م</strong>
+          </div>
+          <div class="flex justify-between p-1.5 rounded border font-extrabold ${isInvoicesBalanced ? 'bg-emerald-50 border-emerald-200 text-emerald-900' : 'bg-rose-100 border-rose-400 text-rose-900'}">
+            <span>مطابقة توازن الفواتير:</span>
+            <span>${fmtDec(invoiceBalanceDiff)} ج.م (${isInvoicesBalanced ? 'فواتير متزنة ✓' : '⚠️ فرق توازن!'})</span>
+          </div>
+        </div>
+      </details>
+
+      <!-- القسم الثالث: حركة التحويلات البنكية التراكمية -->
+      <details class="acc-balance-card group border border-emerald-300 rounded-xl bg-emerald-50/60 overflow-hidden">
+        <summary class="acc-balance-summary flex items-center justify-between px-2.5 py-2 cursor-pointer select-none font-extrabold text-emerald-950 bg-emerald-100/80 hover:bg-emerald-200/70 transition-colors">
+          <span class="flex items-center gap-1.5">
+            <span class="acc-chevron inline-block transition-transform duration-200">▶</span>
+            <span>(=) إجمالي جميع التحويلات:</span>
+          </span>
+          <span class="text-sm font-black">${fmtInt(totalAllTransfers)} ج.م</span>
+        </summary>
+        <div class="p-2.5 bg-white space-y-1.5 border-t border-emerald-200 text-[11px]">
+          <div class="flex justify-between py-1 border-b border-slate-100 text-teal-900">
+            <span class="font-bold">تحويلات المزرعة الحالية (مبيعات ${fmtInt(bankTransfersForToday)} + مديونيات ${fmtInt(debtTransfersAllDays)}):</span>
+            <strong>${fmtInt(currentFarmTransfers)} ج.م</strong>
+          </div>
+          <div class="flex justify-between py-1 text-purple-900">
+            <span class="font-bold">تحويلات مزارع سابقة:</span>
+            <strong>${fmtInt(prevTransfersAllDays)} ج.م</strong>
+          </div>
+        </div>
+      </details>
+
+      <!-- القسم الرابع: صافي المديونية آخر الفترة التراكمي -->
+      <details class="acc-balance-card group border border-indigo-300 rounded-xl bg-indigo-50/70 overflow-hidden" open>
+        <summary class="acc-balance-summary flex items-center justify-between px-2.5 py-2 cursor-pointer select-none font-extrabold text-indigo-950 bg-indigo-100/80 hover:bg-indigo-200/70 transition-colors">
+          <span class="flex items-center gap-1.5">
+            <span class="acc-chevron inline-block transition-transform duration-200">▶</span>
+            <span>(=) صافي المديونية آخر الفترة:</span>
+          </span>
+          <span class="text-sm font-black">${fmtInt(closingFarmDebt)} ج.م</span>
+        </summary>
+        <div class="p-2.5 bg-white space-y-1.5 border-t border-indigo-200 text-[11px]">
+          <div class="flex justify-between py-1 border-b border-slate-100 text-slate-700">
+            <span class="font-bold">مديونية أول الفترة:</span>
+            <strong>${fmtInt(openingFarmDebt)} ج.م</strong>
+          </div>
+          <div class="flex justify-between py-1 border-b border-slate-100 text-amber-950">
+            <span class="font-bold">(+) آجل الفواتير المضاف:</span>
+            <strong>${fmtInt(todayCredit)} ج.م</strong>
+          </div>
+          <div class="flex justify-between py-1 text-teal-900">
+            <span class="font-bold">(-) مسدد المديونية نقدي+تحويل (نقدي ${fmtInt(cashForOldDebts)} + تحويل ${fmtInt(debtTransfersAllDays)}):</span>
+            <strong>${fmtInt(collectedDebtAllDays)} ج.م</strong>
+          </div>
+        </div>
+      </details>
+    </div>
+  `;
+}
+
 function renderFarmCumulativeTrialBalanceUI(summariesList) {
   const ftb = computeFarmCumulativeTrialBalance(summariesList);
   const fName = appState.farmName || 'مزرعة جديدة';
@@ -640,112 +914,34 @@ function renderFarmCumulativeTrialBalanceUI(summariesList) {
     `;
   }
 
-  const auditFarm = computeAuditComplianceMetrics(null, summariesList);
-  let farmWarnBannerEl = document.getElementById('farmTbOpenCustodyWarningBanner');
-  if (!farmWarnBannerEl) {
-    const farmTbCard = document.getElementById('farmTrialBalanceCard');
-    const farmGrid = farmTbCard ? farmTbCard.querySelector('.grid') : null;
-    if (farmTbCard && farmGrid) {
-      farmWarnBannerEl = document.createElement('div');
-      farmWarnBannerEl.id = 'farmTbOpenCustodyWarningBanner';
-      farmTbCard.insertBefore(farmWarnBannerEl, farmGrid);
-    }
-  }
-  if (farmWarnBannerEl) {
-    if (auditFarm.hasOpenPreWeighing) {
-      farmWarnBannerEl.className = 'mx-3.5 mt-3 p-3 rounded-xl bg-rose-700 text-white font-extrabold text-xs md:text-sm shadow-md border-2 border-rose-900 flex items-center justify-center text-center';
-      farmWarnBannerEl.textContent = '⚠️ تحذير رقابي: توجد سيارات دفعت عهدة ولم تنهِ الميزان. أرقام الميزان لن تتطابق حتى يتم استكمال الفواتير المفتوحة';
-    } else {
-      farmWarnBannerEl.className = 'hidden';
-      farmWarnBannerEl.textContent = '';
-    }
-  }
-
-  const p2El = document.getElementById('farmTbPillar2');
-  if (p2El) {
-    const invBalancedOk = Math.abs(ftb.sumInvoiceDiff) <= 1;
-    p2El.innerHTML = `
-      <div class="flex justify-between py-1.5 border-b bg-amber-50 px-1.5 rounded font-extrabold text-amber-950">
-        <span>إجمالي مبيعات المزرعة شامل الإكرامية:</span>
-        <span>${fmtDec(ftb.sumTotalWithTip)} ج.م</span>
-      </div>
-      <div class="flex justify-between py-1 border-b">
-        <span>صافي قيمة اللحم (بدون إكرامية) | الإكراميات:</span>
-        <strong>لحم: ${fmtDec(ftb.sumBase)} | إكراميات: ${fmtInt(ftb.sumTip)}</strong>
-      </div>
-      <div class="flex justify-between py-1 border-b text-teal-900">
-        <span>تحويلات المزرعة الحالية (مبيعات ${fmtInt(ftb.sumTransferSales)} + مديونيات ${fmtInt(ftb.sumDebtTransfer)}):</span>
-        <strong>${fmtInt(ftb.currentFarmTransfers)} ج.م</strong>
-      </div>
-      <div class="flex justify-between py-1 border-b text-purple-900">
-        <span>تحويلات مزارع سابقة (لا تخصم من الحالية):</span>
-        <strong>${fmtInt(ftb.sumPrevTransfer)} ج.م</strong>
-      </div>
-      <div class="flex justify-between p-1.5 rounded bg-emerald-100 text-emerald-950 font-extrabold">
-        <span>إجمالي جميع التحويلات والشيكات بالمزرعة:</span>
-        <span>${fmtInt(ftb.totalAllTransfers)} ج.م</span>
-      </div>
-      <div class="flex justify-between p-1.5 rounded border ${invBalancedOk ? 'bg-slate-50 border-slate-200 text-emerald-900' : 'bg-rose-50 border-rose-300 text-rose-900'} font-extrabold text-[11px]">
-        <span>مطابقة توازن فواتير المزرعة (المسدد والآجل - الفواتير):</span>
-        <span>${fmtDec(ftb.sumInvoiceDiff)} ج.م (${invBalancedOk ? 'فواتير متزنة ✓' : '⚠️ فرق توازن!'})</span>
-      </div>
-      <!-- الخلاصة التراكمية للذمم مع تطبيق منع المقاصة (No-Offsetting) -->
-      <div class="mt-1.5 p-2 rounded-xl bg-indigo-50/80 border border-indigo-200 space-y-1 text-[11px]">
-        <div class="font-extrabold text-indigo-950 border-b border-indigo-200 pb-1 flex items-center justify-between">
-          <span>📌 الخلاصة التراكمية للذمم (منع المقاصة - No-Offsetting):</span>
-          <span class="text-[10px] px-1.5 py-0.5 rounded bg-indigo-900 text-amber-300">شامل كل الأيام</span>
-        </div>
-        <div class="flex justify-between text-slate-700">
-          <span>إجمالي آجل الفواتير | (-) إجمالي مسدد المديونية:</span>
-          <strong>+${fmtInt(ftb.sumCreditSales)} | -${fmtInt(ftb.totalDebtCollected)}</strong>
-        </div>
-        <div class="flex justify-between py-1 px-1.5 rounded bg-rose-50 border border-rose-200 text-rose-950 font-extrabold">
-          <span>أ) مديونيات مستحقة على التجار (الأرصدة الموجبة - لنا):</span>
-          <span>${fmtInt(auditFarm.positiveReceivables)} ج.م</span>
-        </div>
-        <div class="flex justify-between py-1 px-1.5 rounded bg-sky-50 border border-sky-200 text-sky-950 font-extrabold">
-          <span>ب) دفعات مقدمة / أرصدة دائنة للتجار (الأرصدة السالبة - علينا):</span>
-          <span>${fmtInt(auditFarm.negativeAdvances)} ج.م</span>
-        </div>
-      </div>
-    `;
-  }
+  renderFullFarmSummary(summariesList, ftb);
 
   const p3El = document.getElementById('farmTbPillar3');
   if (p3El) {
     p3El.innerHTML = `
-      <div class="border border-emerald-300 rounded-lg overflow-hidden">
-        <div class="bg-emerald-800 text-amber-200 px-2 py-1 text-[11px] font-extrabold text-center">
-          💵 بيان تصفية الخزينة الفعلي التراكمي (الكاش المادي فقط - Cash Drawer)
-        </div>
-        <table class="w-full text-[11px] text-right border-collapse">
-          <tbody class="divide-y divide-slate-200">
-            <tr class="bg-white">
-              <td class="p-1.5 font-bold">(+) نقدية مبيعات اليوم (لحم - كل الأيام):</td>
-              <td class="p-1.5 text-left font-extrabold text-slate-900">${fmtInt(auditFarm.cashMeatToday)} ج.م</td>
-            </tr>
-            <tr class="bg-slate-50/70">
-              <td class="p-1.5 font-bold">(+) نقدية محصلة من مديونيات أيام سابقة:</td>
-              <td class="p-1.5 text-left font-extrabold text-teal-900">${fmtInt(auditFarm.cashPrevDaysDebt)} ج.م</td>
-            </tr>
-            <tr class="bg-white">
-              <td class="p-1.5 font-bold">(+) نقدية إكراميات محصلة:</td>
-              <td class="p-1.5 text-left font-extrabold text-indigo-900">${fmtInt(auditFarm.cashTipsCollected)} ج.م</td>
-            </tr>
-            <tr class="bg-teal-50/60">
-              <td class="p-1.5 font-bold text-teal-950">(+) عهد مبدئية نقدية (سيارات لم توزن):</td>
-              <td class="p-1.5 text-left font-extrabold text-teal-950">${fmtInt(auditFarm.cashPreWeighCustody)} ج.م</td>
-            </tr>
-            <tr class="bg-rose-50/70 text-rose-900">
-              <td class="p-1.5 font-extrabold">(-) يخصم: مصروفات نقدية:</td>
-              <td class="p-1.5 text-left font-extrabold">${fmtInt(auditFarm.cashExpenses)} ج.م</td>
-            </tr>
-            <tr class="bg-emerald-100 text-emerald-950 font-extrabold text-xs border-t-2 border-emerald-600">
-              <td class="p-2">(=) الصافي الواجب تواجده بالدرج:</td>
-              <td class="p-2 text-left">${fmtInt(auditFarm.netDrawerCashRequired)} ج.م</td>
-            </tr>
-          </tbody>
-        </table>
+      <div class="flex justify-between py-1 border-b">
+        <span>(+) إجمالي نقدي المبيعات (جميع الأيام):</span>
+        <strong>${fmtInt(ftb.sumCashSales)} ج.م</strong>
+      </div>
+      <div class="flex justify-between py-1 border-b">
+        <span>(+) إجمالي نقدي تحصيل مديونيات المزرعة الحالية:</span>
+        <strong>${fmtInt(ftb.sumDebtCash)} ج.م</strong>
+      </div>
+      <div class="flex justify-between py-1 border-b text-purple-900">
+        <span>(+) إجمالي نقدي مزارع سابقة (للخزنة فقط):</span>
+        <strong>${fmtInt(ftb.sumPrevCash)} ج.م</strong>
+      </div>
+      <div class="flex justify-between py-1 px-1.5 rounded bg-amber-100 text-slate-950 font-extrabold">
+        <span>(=) إجمالي وارد النقدية التراكمي (قبل المصاريف):</span>
+        <span>${fmtInt(ftb.totalCashInflowBeforeExpenses)} ج.م</span>
+      </div>
+      <div class="flex justify-between py-1 border-b text-rose-800 font-bold">
+        <span>(-) يخصم: إجمالي المصروفات والمكافآت (جميع الأيام):</span>
+        <span>${fmtInt(ftb.sumExpenses)} ج.م</span>
+      </div>
+      <div class="flex justify-between py-1.5 px-2 rounded-lg bg-emerald-100 border border-emerald-400 text-emerald-950 font-extrabold">
+        <span>(=) صافي النقدية التراكمية بالخزنة (بعد المصاريف):</span>
+        <span>${fmtInt(ftb.netCumulativeCashInBox)} ج.م</span>
       </div>
       <div class="flex justify-between py-1 border-b text-blue-950 font-extrabold mt-1">
         <span>(-) إجمالي النقدية الموردة للإدارة (عبر كل الأيام):</span>
@@ -3959,7 +4155,7 @@ function initFarmSalesApp() {
     if (btnInstallPwa) btnInstallPwa.classList.add("hidden");
     deferredPwaPrompt = null;
   });
-  const ACTIVE_PWA_CACHE_NAME = 'farm-sales-v92-audit-compliance';
+  const ACTIVE_PWA_CACHE_NAME = 'farm-sales-v91-accordion-math';
 
   // Force app hard reload via Service Worker update lifecycle
   async function forceAppHardReload() {
