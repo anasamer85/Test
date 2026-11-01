@@ -1,27 +1,89 @@
-
-function getReceiptDropdownHtml(rId, dayNum) {
-  const safeRId = escXmlStr(rId);
-  const dNum = Number(dayNum) || appState.currentDay || 1;
-  return `
-    <div class="relative inline-block universal-export-dropdown ml-1">
-      <button type="button" data-receipt-dropdown-toggle="${safeRId}_${dNum}" class="px-2 py-1 rounded-lg bg-indigo-800 hover:bg-indigo-700 text-white font-extrabold text-[10px] shadow-sm transition inline-flex items-center gap-1 border border-indigo-400" title="خيارات بون الميزان (طباعة، صورة، PDF)">
-        <span>⚙️</span><span>خيارات البون</span><span class="text-[9px]">▾</span>
+// =========================================================================
+// RECEIPT EXPORT DROPDOWN & GLOBAL DELETE CONFIRMATION MODAL (v95)
+// =========================================================================
+function buildScaleReceiptDropdownHtml(safeId, dayNum, extraContainerCls = 'ml-1') {
+  return `<div class="receipt-dropdown-container ${extraContainerCls}">
+    <button type="button" class="receipt-dropdown-toggle-btn" data-toggle-receipt-dropdown="${safeId}" title="خيارات طباعة وتصدير البون (3 نسخ A4)">
+      <span>⚙️ تصدير</span>
+      <span class="text-[9px]">▾</span>
+    </button>
+    <div class="receipt-dropdown-menu" role="menu">
+      <button type="button" class="receipt-dropdown-item" data-print-receipt="${safeId}" data-receipt-day="${dayNum}">
+        <span>🖨️</span>
+        <span>طباعة بون (3 نسخ)</span>
       </button>
-      <div data-receipt-dropdown-menu="${safeRId}_${dNum}" class="hidden absolute left-0 mt-1.5 w-40 bg-white text-slate-900 rounded-xl shadow-2xl border-2 border-slate-200 py-1.5 z-50 text-right">
-        <button type="button" data-receipt-action="print" data-receipt-id="${safeRId}" data-receipt-day="${dNum}" class="w-full px-3 py-1.5 text-xs font-extrabold text-indigo-950 hover:bg-indigo-50 flex items-center gap-2 transition text-right">
-          <span>🖨️</span><span>طباعة البون</span>
-        </button>
-        <button type="button" data-receipt-action="img" data-receipt-id="${safeRId}" data-receipt-day="${dNum}" class="w-full px-3 py-1.5 text-xs font-extrabold text-teal-950 hover:bg-teal-50 flex items-center gap-2 transition text-right">
-          <span>🖼️</span><span>حفظ صورة (PNG)</span>
-        </button>
-        <button type="button" data-receipt-action="pdf" data-receipt-id="${safeRId}" data-receipt-day="${dNum}" class="w-full px-3 py-1.5 text-xs font-extrabold text-rose-950 hover:bg-rose-50 flex items-center gap-2 transition text-right">
-          <span>📄</span><span>تصدير PDF</span>
-        </button>
+      <button type="button" class="receipt-dropdown-item" data-export-receipt-img="${safeId}" data-receipt-day="${dayNum}">
+        <span>🖼️</span>
+        <span>حفظ صورة (PNG)</span>
+      </button>
+      <button type="button" class="receipt-dropdown-item" data-export-receipt-pdf="${safeId}" data-receipt-day="${dayNum}">
+        <span>📄</span>
+        <span>تصدير ملف (PDF)</span>
+      </button>
+    </div>
+  </div>`;
+}
+
+function closeAllReceiptDropdownMenus() {
+  document.querySelectorAll('.receipt-dropdown-menu.open').forEach(menu => {
+    menu.classList.remove('open');
+  });
+  document.querySelectorAll('.receipt-dropdown-open-cell').forEach(el => {
+    el.classList.remove('receipt-dropdown-open-cell');
+  });
+  document.querySelectorAll('.receipt-dropdown-open-row').forEach(el => {
+    el.classList.remove('receipt-dropdown-open-row');
+  });
+  document.querySelectorAll('.receipt-dropdown-active-wrapper').forEach(el => {
+    el.classList.remove('receipt-dropdown-active-wrapper');
+  });
+}
+
+let pendingGlobalDeleteCallback = null;
+
+function ensureGlobalDeleteConfirmModalExists() {
+  let modal = document.getElementById('globalDeleteConfirmModal');
+  if (modal) return modal;
+  const wrapper = document.createElement('div');
+  wrapper.innerHTML = `
+    <div id="globalDeleteConfirmModal" class="hidden fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto" style="z-index: 100000 !important;" role="dialog" aria-modal="true">
+      <div class="bg-white text-slate-900 rounded-3xl shadow-2xl border-4 border-rose-500 max-w-md w-full p-6 space-y-5 text-right">
+        <div class="text-center space-y-1.5 border-b border-slate-200 pb-4">
+          <div class="inline-flex items-center justify-center px-4 py-1.5 rounded-2xl bg-rose-100 text-rose-800 border border-rose-300 font-extrabold text-sm shadow-sm">
+            ⚠️ تأكيد الحذف
+          </div>
+          <h2 id="globalDeleteConfirmTitle" class="text-lg md:text-xl font-extrabold text-slate-900 pt-1">⚠️ تأكيد الحذف</h2>
+          <p id="globalDeleteConfirmMessage" class="text-xs md:text-sm text-slate-700 font-extrabold leading-relaxed bg-rose-50 border border-rose-200 rounded-xl p-3"></p>
+        </div>
+        <div class="flex items-center gap-2.5 pt-1">
+          <button type="button" id="btnCancelGlobalDeleteModal" class="flex-1 py-2.5 px-3 rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-800 font-extrabold text-xs transition">إلغاء</button>
+          <button type="button" id="btnConfirmGlobalDeleteModal" class="flex-[1.5] py-2.5 px-4 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-extrabold text-xs shadow-lg transition">🗑️ نعم، احذف نهائياً</button>
+        </div>
       </div>
     </div>
   `;
+  document.body.appendChild(wrapper.firstElementChild);
+  modal = document.getElementById('globalDeleteConfirmModal');
+  return modal;
 }
 
+function closeGlobalDeleteConfirmModal() {
+  pendingGlobalDeleteCallback = null;
+  const modal = document.getElementById('globalDeleteConfirmModal');
+  if (modal) modal.classList.add('hidden');
+}
+
+function openGlobalDeleteConfirmModal(itemDescription, onConfirm, customTitle = '⚠️ تأكيد الحذف') {
+  const modal = ensureGlobalDeleteConfirmModalExists();
+  const titleEl = document.getElementById('globalDeleteConfirmTitle');
+  const msgEl = document.getElementById('globalDeleteConfirmMessage');
+  if (titleEl) titleEl.textContent = customTitle;
+  if (msgEl) msgEl.textContent = itemDescription || 'هل أنت متأكد من حذف هذا العنصر نهائياً؟';
+  pendingGlobalDeleteCallback = typeof onConfirm === 'function' ? onConfirm : null;
+  modal.classList.remove('hidden');
+}
+window.openGlobalDeleteConfirmModal = openGlobalDeleteConfirmModal;
+window.closeGlobalDeleteConfirmModal = closeGlobalDeleteConfirmModal;
 
 // =========================================================================
 // MODULE 6: UI RENDERING, TABLE FILTERS, LITE MODE & CONTROLLERS (js/ui-controllers.js — v91)
@@ -244,7 +306,9 @@ function renderDailyView() {
             ? '<span class="text-amber-800 font-extrabold text-[11px]">⏳ بانتظار وزنة 2</span>'
             : (r.isDebtCollectionOnly ? '<span class="text-teal-800 font-extrabold text-[10px]">💵 سند تحصيل</span>' : fmtInt(r.w2)));
       const showReceiptBtn = Boolean(excelTableState && excelTableState.showScaleReceiptButtons);
-      const receiptBtnHtml = showReceiptBtn ? getReceiptDropdownHtml(safeId, d) : '';
+      const receiptBtnHtml = showReceiptBtn
+        ? buildScaleReceiptDropdownHtml(safeId, d, 'ml-1')
+        : '';
       const auditBadgeHtml = renderAuditTrailBadgeHtml(r);
       const actionCellHtml = !canEditSalesToday
         ? `${auditBadgeHtml}${receiptBtnHtml}<span class="text-slate-500 text-[11px] font-bold">${dayLocked ? '🔒 يوم معتمد ومقفل' : '🔒 عرض فقط'}</span>`
@@ -456,7 +520,7 @@ function renderDailyView() {
           <td class="p-1.5 border text-right text-[11px] font-bold ${isPreWeighing ? 'text-teal-950' : ''}">${totalDepositAmt > 0 ? `💰 عهدة/نقدي: ${fmtMoney(totalDepositAmt)} ج.م` : escXmlStr(item.notes || 'بانتظار الوزنة الثانية')}</td>
           <td class="p-1 border text-center whitespace-nowrap">
             ${renderAuditTrailBadgeHtml(item)}
-            ${excelTableState && excelTableState.showScaleReceiptButtons ? getReceiptDropdownHtml(safePendId, d) : ''}
+            ${excelTableState && excelTableState.showScaleReceiptButtons ? buildScaleReceiptDropdownHtml(safePendId, d, 'ml-1') : ''}
             <button type="button" data-recall-pending="${safePendId}" class="px-2 py-0.5 rounded-lg ${isPreWeighing ? 'bg-teal-700 hover:bg-teal-600' : 'bg-emerald-600 hover:bg-emerald-500'} text-white font-extrabold text-[11px] ml-1 shadow-sm">
               ${isPreWeighing ? '💰 استرجاع للميزان' : '🔄 استرجاع'}
             </button>
@@ -2094,7 +2158,7 @@ function renderMerchantDrillDownModal() {
         <td class="p-2 border text-right text-[11px] font-bold text-purple-900">${escXmlStr(notesCellTxt)}</td>
         <td class="p-1.5 border text-center print-hide-col whitespace-nowrap">
           ${renderAuditTrailBadgeHtml(r)}
-          ${excelTableState && excelTableState.showScaleReceiptButtons ? getReceiptDropdownHtml(safeMovId, r.dayNum) : ''}
+          ${excelTableState && excelTableState.showScaleReceiptButtons ? buildScaleReceiptDropdownHtml(safeMovId, r.dayNum, 'ml-1') : ''}
           <button type="button" data-modal-jump-day="${r.dayNum}" class="px-2 py-1 rounded-lg bg-blue-100 hover:bg-blue-200 text-blue-900 font-extrabold text-[11px] whitespace-nowrap">
             📂 يوم ${r.dayNum}
           </button>
@@ -3103,9 +3167,7 @@ function renderLiteFieldModeComponents(dayNum, summary, canEditSalesToday, dayLo
                 <span>${isPreWeighing ? '💰' : '🔄'}</span>
                 <span>${isPreWeighing ? 'إدخال وزنة 1' : 'استكمال وزنة 2'}</span>
               </button>
-              <button type="button" data-print-receipt="${safeId}" data-receipt-day="${dayNum}" class="py-1.5 px-2 rounded-lg bg-indigo-800 hover:bg-indigo-700 text-white font-extrabold text-xs shadow-sm" title="طباعة بون وزنة أولى">
-                🖨️
-              </button>
+              ${buildScaleReceiptDropdownHtml(safeId, dayNum, '')}
               <button type="button" data-del-pending="${safeId}" class="py-1.5 px-2 rounded-lg bg-rose-100 hover:bg-rose-200 text-rose-800 font-extrabold text-xs" title="حذف المؤقت">
                 🗑️
               </button>
@@ -3240,7 +3302,7 @@ function renderLiteFieldModeComponents(dayNum, summary, canEditSalesToday, dayLo
         <div class="flex items-center justify-between gap-2 flex-wrap pt-1 border-t border-slate-100">
           <div class="flex items-center gap-1 flex-wrap">
             ${auditBadge}
-            ${excelTableState && excelTableState.showScaleReceiptButtons ? getReceiptDropdownHtml(safeId, dayNum) : ''}
+            ${buildScaleReceiptDropdownHtml(safeId, dayNum, '')}
           </div>
           <div class="flex items-center gap-1.5">
             ${actionsHtml}
@@ -4161,7 +4223,7 @@ function initFarmSalesApp() {
     if (btnInstallPwa) btnInstallPwa.classList.add("hidden");
     deferredPwaPrompt = null;
   });
-  const ACTIVE_PWA_CACHE_NAME = 'farm-sales-v95-receipt-dropdown';
+  const ACTIVE_PWA_CACHE_NAME = 'farm-sales-v95-receipt-dropdown-and-safety';
 
   // Force app hard reload via Service Worker update lifecycle
   async function forceAppHardReload() {
@@ -4196,7 +4258,7 @@ function initFarmSalesApp() {
   if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1')) {
     if (!window.__swRegisteredOnceV86) {
       window.__swRegisteredOnceV86 = true;
-      navigator.serviceWorker.register('./sw.js?v=90', { scope: './' }).catch(() => {});
+      navigator.serviceWorker.register('./sw.js?v=95', { scope: './' }).catch(() => {});
     }
   }
 
@@ -4790,24 +4852,26 @@ function initFarmSalesApp() {
         showToast('لا يمكن حذف المزرعة الوحيدة في قاعدة البيانات — يمكنك تعديل اسمها أو تصفيرها.', '⚠️');
         return;
       }
-      const delTs = getSyncedNow() + 100;
-      if (appState.farmsArchive && appState.farmsArchive[fn] && appState.farmsArchive[fn].days) {
-        for (let d = 1; d <= 10; d++) {
-          if (appState.farmsArchive[fn].days[d]) {
-            recordDayItemsAsDeleted(appState.farmsArchive[fn].days[d]);
+      openGlobalDeleteConfirmModal(`هل أنت متأكد من حذف مزرعة (${fn}) وجميع أيامها وحركاتها من الأرشيف نهائياً؟`, () => {
+        const delTs = getSyncedNow() + 100;
+        if (appState.farmsArchive && appState.farmsArchive[fn] && appState.farmsArchive[fn].days) {
+          for (let d = 1; d <= 10; d++) {
+            if (appState.farmsArchive[fn].days[d]) {
+              recordDayItemsAsDeleted(appState.farmsArchive[fn].days[d]);
+            }
           }
         }
-      }
-      recordDeletedItem('farms', fn, delTs, true);
-      delete appState.farmsArchive[fn];
-      if (appState.farmName === fn) {
-        const nextFn = Object.keys(appState.farmsArchive)[0];
-        appState.farmName = nextFn;
-        appState.days = JSON.parse(JSON.stringify(appState.farmsArchive[nextFn].days));
-      }
-      saveState(true);
-      renderAll();
-      showToast(`تم حذف مزرعة (${fn}) من سجل قاعدة البيانات ومزامنة الحذف مع السحابة`, '🗑️');
+        recordDeletedItem('farms', fn, delTs, true);
+        delete appState.farmsArchive[fn];
+        if (appState.farmName === fn) {
+          const nextFn = Object.keys(appState.farmsArchive)[0];
+          appState.farmName = nextFn;
+          appState.days = JSON.parse(JSON.stringify(appState.farmsArchive[nextFn].days));
+        }
+        saveState(true);
+        renderAll();
+        showToast(`تم حذف مزرعة (${fn}) من سجل قاعدة البيانات ومزامنة الحذف مع السحابة`, '🗑️');
+      }, '⚠️ تأكيد حذف مزرعة');
     }
   });
 
@@ -5114,19 +5178,21 @@ function initFarmSalesApp() {
     if (delBtn) {
       const uid = delBtn.getAttribute('data-del-user');
       const deletedUserObj = appState.users.find(u => u.id === uid);
-      recordDeletedItem('users', uid);
-      appState.users = appState.users.filter(u => u.id !== uid);
-      const wasCurrentActiveUser = (appState.activeUserId === uid);
-      saveState(true);
-      if (liveBroadcastChannel) {
-        try { liveBroadcastChannel.postMessage({ type: 'USER_DELETED', deletedUserId: uid }); } catch (err) {}
-      }
-      if (wasCurrentActiveUser) {
-        verifyActiveUserSession();
-      } else {
-        renderAll();
-        showToast(`تم حذف حساب (${deletedUserObj ? deletedUserObj.name : uid}) وتسجيل خروجه فوراً من أي جهاز متصل!`, '🗑️');
-      }
+      openGlobalDeleteConfirmModal(`هل أنت متأكد من حذف حساب المستخدم (${deletedUserObj ? deletedUserObj.name : uid}) نهائياً؟`, () => {
+        recordDeletedItem('users', uid);
+        appState.users = appState.users.filter(u => u.id !== uid);
+        const wasCurrentActiveUser = (appState.activeUserId === uid);
+        saveState(true);
+        if (liveBroadcastChannel) {
+          try { liveBroadcastChannel.postMessage({ type: 'USER_DELETED', deletedUserId: uid }); } catch (err) {}
+        }
+        if (wasCurrentActiveUser) {
+          verifyActiveUserSession();
+        } else {
+          renderAll();
+          showToast(`تم حذف حساب (${deletedUserObj ? deletedUserObj.name : uid}) وتسجيل خروجه فوراً من أي جهاز متصل!`, '🗑️');
+        }
+      }, '⚠️ تأكيد حذف مستخدم');
     }
   });
 
@@ -6334,13 +6400,35 @@ function initFarmSalesApp() {
   const litePendListEl = document.getElementById('litePendingCardsHorizontalList');
   if (litePendListEl) {
     litePendListEl.addEventListener('click', (e) => {
+      if (e.target.closest('[data-toggle-receipt-dropdown]')) return;
       const printBtn = e.target.closest('[data-print-receipt]');
       if (printBtn) {
         e.preventDefault();
         e.stopPropagation();
+        closeAllReceiptDropdownMenus();
         const sId = printBtn.getAttribute('data-print-receipt');
         const sDay = Number(printBtn.getAttribute('data-receipt-day')) || appState.currentDay || 1;
         if (sId) triggerTablePrint(`scaleReceipt:${sDay}:${sId}`);
+        return;
+      }
+      const expImgBtn = e.target.closest('[data-export-receipt-img]');
+      if (expImgBtn) {
+        e.preventDefault();
+        e.stopPropagation();
+        closeAllReceiptDropdownMenus();
+        const sId = expImgBtn.getAttribute('data-export-receipt-img');
+        const sDay = Number(expImgBtn.getAttribute('data-receipt-day')) || appState.currentDay || 1;
+        if (sId) exportScaleReceiptAsImageOrPdf(sId, sDay, 'png');
+        return;
+      }
+      const expPdfBtn = e.target.closest('[data-export-receipt-pdf]');
+      if (expPdfBtn) {
+        e.preventDefault();
+        e.stopPropagation();
+        closeAllReceiptDropdownMenus();
+        const sId = expPdfBtn.getAttribute('data-export-receipt-pdf');
+        const sDay = Number(expPdfBtn.getAttribute('data-receipt-day')) || appState.currentDay || 1;
+        if (sId) exportScaleReceiptAsImageOrPdf(sId, sDay, 'pdf');
         return;
       }
       const delBtn = e.target.closest('[data-del-pending]');
@@ -6362,6 +6450,7 @@ function initFarmSalesApp() {
   const liteSalesCardsEl = document.getElementById('liteSalesCardsContainer');
   if (liteSalesCardsEl) {
     liteSalesCardsEl.addEventListener('click', (e) => {
+      if (e.target.closest('[data-toggle-receipt-dropdown]')) return;
       const targetBtn = e.target.closest('button');
       if (!targetBtn) return;
       const printRecBtn = e.target.closest('[data-print-receipt]');
@@ -6415,8 +6504,7 @@ function initFarmSalesApp() {
       const delSaleBtn = e.target.closest('[data-del-sale]');
       if (delSaleBtn) {
         const sId = delSaleBtn.getAttribute('data-del-sale');
-        const tblDelBtn = document.querySelector(`#dailySalesTbody [data-del-sale="${CSS.escape(sId)}"]`);
-        if (tblDelBtn) tblDelBtn.click();
+        deleteSaleById(sId);
       }
     });
   }
@@ -6709,16 +6797,100 @@ function initFarmSalesApp() {
       showToast('🔒 هذا اليوم مقفل ومعتمد محاسبياً — لا يمكن حذف حركات إلا بعد فك القفل!', '🔒');
       return;
     }
-    recordDeletedItem('pendingSales', pid);
     const dayObj = appState.days[appState.currentDay];
-    dayObj.pendingSales = (dayObj.pendingSales || []).filter(x => x.id !== pid);
-    if (activeRecalledPendingId === pid) {
-      cancelOrClearCurrentSaleEntry(false);
-    }
-    saveState(true);
-    renderAll();
-    showToast('تم حذف الوزنة المؤقتة المحجوزة وتحديث الجدول', '🗑️');
+    const targetPend = (dayObj.pendingSales || []).find(x => x.id === pid);
+    const labelTxt = targetPend
+      ? `هل أنت متأكد من حذف الحركة المؤقتة للتاجر (${targetPend.merchant || '-'}) بمسلسل ميزان (${targetPend.scaleNo || 'عهدة'}) نهائياً؟`
+      : 'هل أنت متأكد من حذف هذه الوزنة المؤقتة المحجوزة نهائياً؟';
+    openGlobalDeleteConfirmModal(labelTxt, () => {
+      recordDeletedItem('pendingSales', pid);
+      dayObj.pendingSales = (dayObj.pendingSales || []).filter(x => x.id !== pid);
+      if (activeRecalledPendingId === pid) {
+        cancelOrClearCurrentSaleEntry(false);
+      }
+      saveState(true);
+      renderAll();
+      showToast('تم حذف الوزنة المؤقتة المحجوزة وتحديث الجدول', '🗑️');
+    }, '⚠️ تأكيد حذف وزنة مؤقتة');
   }
+  window.deletePendingSaleById = deletePendingSaleById;
+
+  function deleteSaleById(id) {
+    if (!hasPermission('sales')) return;
+    if (isDayLocked(appState.currentDay)) {
+      showToast('🔒 هذا اليوم مقفل ومعتمد محاسبياً — لا يمكن حذف حركات إلا بعد فك القفل!', '🔒');
+      return;
+    }
+    const daySales = (appState.days[appState.currentDay] && appState.days[appState.currentDay].sales) || [];
+    const targetSale = daySales.find(x => x.id === id);
+    const labelTxt = targetSale
+      ? `هل أنت متأكد من حذف حركة بيع التاجر (${targetSale.merchant || '-'}) رقم (${targetSale.scaleNo || targetSale.voucherNo || '-'}) نهائياً؟`
+      : 'هل أنت متأكد من حذف حركة البيع هذه نهائياً؟';
+    openGlobalDeleteConfirmModal(labelTxt, () => {
+      recordDeletedItem('sales', id);
+      appState.days[appState.currentDay].sales = appState.days[appState.currentDay].sales.filter(x => x.id !== id);
+      saveState(true);
+      renderAll();
+      showToast('تم حذف الحركة وتحديث ميزان الخزنة على جميع الأجهزة', '🗑️');
+    }, '⚠️ تأكيد حذف حركة بيع');
+  }
+  window.deleteSaleById = deleteSaleById;
+
+  function deleteExpenseById(id) {
+    if (!hasPermission('expenses')) return;
+    if (isDayLocked(appState.currentDay)) {
+      showToast('🔒 هذا اليوم مقفل ومعتمد محاسبياً — لا يمكن حذف مصروفات إلا بعد فك القفل!', '🔒');
+      return;
+    }
+    const dayExps = (appState.days[appState.currentDay] && appState.days[appState.currentDay].expenses) || [];
+    const targetExp = dayExps.find(x => x.id === id);
+    const labelTxt = targetExp
+      ? `هل أنت متأكد من حذف بند المصروف (${targetExp.category || ''} - ${fmtInt(targetExp.amount)} ج.م) وإعادة المبلغ لرصيد الخزنة؟`
+      : 'هل أنت متأكد من حذف بند المصروف هذا نهائياً؟';
+    openGlobalDeleteConfirmModal(labelTxt, () => {
+      recordDeletedItem('expenses', id);
+      appState.days[appState.currentDay].expenses = appState.days[appState.currentDay].expenses.filter(x => x.id !== id);
+      if (document.getElementById('editExpenseId').value === id) {
+        resetExpenseFormEditMode();
+      }
+      saveState(true);
+      renderAll();
+      showToast('تم حذف بند المصروف وإعادة المبلغ لرصيد الخزنة', '🗑️');
+    }, '⚠️ تأكيد حذف مصروف');
+  }
+  window.deleteExpenseById = deleteExpenseById;
+
+  function deleteMerchantByCode(rawCode) {
+    if (!hasPermission('merchants')) return;
+    const code = Number(rawCode);
+    const mObj = appState.merchants.find(m => Number(m.code) === code);
+    const labelTxt = mObj
+      ? `هل أنت متأكد من حذف التاجر (${mObj.name} - كود ${mObj.code}) من دليل التجار نهائياً؟`
+      : `هل أنت متأكد من حذف التاجر (كود ${code}) نهائياً؟`;
+    openGlobalDeleteConfirmModal(labelTxt, () => {
+      const delTs = getSyncedNow() + 100;
+      if (mObj && mObj.name) {
+        const normName = normalizeArabicMerchantCompareKey(mObj.name);
+        if (appState.deletedTimestamps && appState.deletedTimestamps.merchants) {
+          appState.deletedTimestamps.merchants['name:' + normName] = delTs;
+        }
+      }
+      recordDeletedItem('merchants', code, delTs, true);
+      appState.merchants = (appState.merchants || []).filter(m => Number(m.code) !== code);
+      if (appState.farmsArchive && typeof appState.farmsArchive === 'object') {
+        Object.values(appState.farmsArchive).forEach(fObj => {
+          if (fObj && Array.isArray(fObj.merchants)) {
+            fObj.merchants = fObj.merchants.filter(fm => fm && Number(fm.code) !== code && (!mObj || !isSameMerchantIdentity(fm.name, mObj.name)));
+          }
+        });
+      }
+      saveState(true);
+      renderAll();
+      showToast(`تم حذف التاجر (${mObj ? mObj.name : code}) من قائمة التكويد ومزامنة الحذف مع السحابة`, '🗑️');
+    }, '⚠️ تأكيد حذف تاجر');
+  }
+  window.deleteMerchantByCode = deleteMerchantByCode;
+
 
   let pendingPriceActionMode = '';
 
@@ -7199,6 +7371,7 @@ function initFarmSalesApp() {
 
   // Edit / Delete / Recall Sale Row Delegation (Protected by Sales Permission)
   document.getElementById('dailySalesTbody').addEventListener('click', (e) => {
+    if (e.target.closest('[data-toggle-receipt-dropdown]')) return;
     const printRecBtn = e.target.closest('[data-print-receipt]');
     if (printRecBtn) {
       e.preventDefault();
@@ -7285,11 +7458,7 @@ function initFarmSalesApp() {
     const delBtn = e.target.closest('[data-del-sale]');
     if (delBtn) {
       const id = delBtn.getAttribute('data-del-sale');
-      recordDeletedItem('sales', id);
-      appState.days[appState.currentDay].sales = appState.days[appState.currentDay].sales.filter(x => x.id !== id);
-      saveState(true);
-      renderAll();
-      showToast('تم حذف الحركة وتحديث ميزان الخزنة على جميع الأجهزة', '🗑️');
+      deleteSaleById(id);
     }
   });
 
@@ -7427,14 +7596,7 @@ function initFarmSalesApp() {
     const delBtn = e.target.closest('[data-del-exp]');
     if (delBtn) {
       const id = delBtn.getAttribute('data-del-exp');
-      recordDeletedItem('expenses', id);
-      appState.days[appState.currentDay].expenses = appState.days[appState.currentDay].expenses.filter(x => x.id !== id);
-      if (document.getElementById('editExpenseId').value === id) {
-        resetExpenseFormEditMode();
-      }
-      saveState(true);
-      renderAll();
-      showToast('تم حذف بند المصروف وإعادة المبلغ لرصيد الخزنة');
+      deleteExpenseById(id);
     }
   });
 
@@ -8203,11 +8365,58 @@ function initFarmSalesApp() {
       exportMerchantDrillDownToExcel();
     });
   }
+  ensureGlobalDeleteConfirmModalExists();
+  const btnCancelGlobalDel = document.getElementById('btnCancelGlobalDeleteModal');
+  if (btnCancelGlobalDel) {
+    btnCancelGlobalDel.addEventListener('click', () => {
+      closeGlobalDeleteConfirmModal();
+    });
+  }
+  const btnConfirmGlobalDel = document.getElementById('btnConfirmGlobalDeleteModal');
+  if (btnConfirmGlobalDel) {
+    btnConfirmGlobalDel.addEventListener('click', () => {
+      const fn = pendingGlobalDeleteCallback;
+      closeGlobalDeleteConfirmModal();
+      if (typeof fn === 'function') fn();
+    });
+  }
+  const globalDelModalEl = document.getElementById('globalDeleteConfirmModal');
+  if (globalDelModalEl) {
+    globalDelModalEl.addEventListener('click', (e) => {
+      if (e.target === globalDelModalEl) closeGlobalDeleteConfirmModal();
+    });
+  }
+
   document.addEventListener('click', (e) => {
+    const toggleRecDropBtn = e.target.closest('[data-toggle-receipt-dropdown]');
+    if (toggleRecDropBtn) {
+      e.preventDefault();
+      e.stopPropagation();
+      const container = toggleRecDropBtn.closest('.receipt-dropdown-container');
+      const menu = container ? container.querySelector('.receipt-dropdown-menu') : null;
+      const isAlreadyOpen = Boolean(menu && menu.classList.contains('open'));
+      closeAllReceiptDropdownMenus();
+      if (menu && !isAlreadyOpen) {
+        menu.classList.add('open');
+        const parentCell = toggleRecDropBtn.closest('td, th');
+        const parentRow = toggleRecDropBtn.closest('tr, .rounded-2xl, .lite-pending-card');
+        const scrollWrap = toggleRecDropBtn.closest('.table-scroll-wrapper');
+        if (parentCell) parentCell.classList.add('receipt-dropdown-open-cell');
+        if (parentRow) parentRow.classList.add('receipt-dropdown-open-row');
+        if (scrollWrap) scrollWrap.classList.add('receipt-dropdown-active-wrapper');
+      }
+      return;
+    }
+
+    if (!e.target.closest('.receipt-dropdown-menu')) {
+      closeAllReceiptDropdownMenus();
+    }
+
     const printRecBtn = e.target.closest('[data-print-receipt]');
     if (printRecBtn) {
       e.preventDefault();
       e.stopPropagation();
+      closeAllReceiptDropdownMenus();
       const sId = printRecBtn.getAttribute('data-print-receipt');
       const sDay = Number(printRecBtn.getAttribute('data-receipt-day')) || appState.currentDay || 1;
       if (sId) triggerTablePrint(`scaleReceipt:${sDay}:${sId}`);
@@ -8217,6 +8426,7 @@ function initFarmSalesApp() {
     if (expImgRecBtn) {
       e.preventDefault();
       e.stopPropagation();
+      closeAllReceiptDropdownMenus();
       const sId = expImgRecBtn.getAttribute('data-export-receipt-img');
       const sDay = Number(expImgRecBtn.getAttribute('data-receipt-day')) || appState.currentDay || 1;
       if (sId) exportScaleReceiptAsImageOrPdf(sId, sDay, 'png');
@@ -8226,6 +8436,7 @@ function initFarmSalesApp() {
     if (expPdfRecBtn) {
       e.preventDefault();
       e.stopPropagation();
+      closeAllReceiptDropdownMenus();
       const sId = expPdfRecBtn.getAttribute('data-export-receipt-pdf');
       const sDay = Number(expPdfRecBtn.getAttribute('data-receipt-day')) || appState.currentDay || 1;
       if (sId) exportScaleReceiptAsImageOrPdf(sId, sDay, 'pdf');
@@ -8280,26 +8491,7 @@ function initFarmSalesApp() {
     if (delBtn) {
       if (!hasPermission('merchants')) return;
       const code = Number(delBtn.getAttribute('data-del-merchant'));
-      const mObj = appState.merchants.find(m => Number(m.code) === code);
-      const delTs = getSyncedNow() + 100;
-      if (mObj && mObj.name) {
-        const normName = normalizeArabicMerchantCompareKey(mObj.name);
-        if (appState.deletedTimestamps && appState.deletedTimestamps.merchants) {
-          appState.deletedTimestamps.merchants['name:' + normName] = delTs;
-        }
-      }
-      recordDeletedItem('merchants', code, delTs, true);
-      appState.merchants = (appState.merchants || []).filter(m => Number(m.code) !== code);
-      if (appState.farmsArchive && typeof appState.farmsArchive === 'object') {
-        Object.values(appState.farmsArchive).forEach(fObj => {
-          if (fObj && Array.isArray(fObj.merchants)) {
-            fObj.merchants = fObj.merchants.filter(fm => fm && Number(fm.code) !== code && (!mObj || !isSameMerchantIdentity(fm.name, mObj.name)));
-          }
-        });
-      }
-      saveState(true);
-      renderAll();
-      showToast(`تم حذف التاجر (${mObj ? mObj.name : code}) من قائمة التكويد ومزامنة الحذف مع السحابة`, '🗑️');
+      deleteMerchantByCode(code);
     }
   });
 
@@ -8548,7 +8740,7 @@ function initFarmSalesApp() {
     './js/accounting.js?v=90',
     './js/storage-sync.js?v=90',
     './js/excel-engine.js?v=90',
-    './js/print-export.js?v=95',
+    './js/print-export.js?v=94',
     './js/ui-controllers.js?v=90'
   ];
 
@@ -9544,40 +9736,6 @@ async function universalExportTable(tableId, format = 'excel') {
 window.universalExportTable = universalExportTable;
 
 document.addEventListener('click', (e) => {
-  const receiptToggleBtn = e.target.closest('[data-receipt-dropdown-toggle]');
-  if (receiptToggleBtn) {
-    e.preventDefault();
-    e.stopPropagation();
-    const targetId = receiptToggleBtn.getAttribute('data-receipt-dropdown-toggle');
-    const targetMenu = document.querySelector(`[data-receipt-dropdown-menu="${targetId}"]`);
-    const wasHidden = targetMenu ? targetMenu.classList.contains('hidden') : true;
-    closeAllUniversalExportDropdowns();
-    if (targetMenu && wasHidden) {
-      targetMenu.classList.remove('hidden');
-    }
-    return;
-  }
-
-  const receiptActionBtn = e.target.closest('[data-receipt-action]');
-  if (receiptActionBtn) {
-    e.preventDefault();
-    e.stopPropagation();
-    closeAllUniversalExportDropdowns();
-    const action = receiptActionBtn.getAttribute('data-receipt-action');
-    const sId = receiptActionBtn.getAttribute('data-receipt-id');
-    const sDay = Number(receiptActionBtn.getAttribute('data-receipt-day')) || appState.currentDay || 1;
-    if (sId) {
-      if (action === 'print') {
-        triggerTablePrint(`scaleReceipt:${sDay}:${sId}`);
-      } else if (action === 'img') {
-        exportScaleReceiptAsImageOrPdf(sId, sDay, 'png');
-      } else if (action === 'pdf') {
-        exportScaleReceiptAsImageOrPdf(sId, sDay, 'pdf');
-      }
-    }
-    return;
-  }
-
   const toggleBtn = e.target.closest('[data-export-dropdown-toggle]');
   if (toggleBtn) {
     e.preventDefault();

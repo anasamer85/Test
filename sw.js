@@ -1,5 +1,5 @@
 // Service Worker - نظام محاضر لجان بيع المزارع (Modular Architecture PWA v95)
-const CACHE_NAME = "farm-sales-v95-receipt-fix";
+const CACHE_NAME = "farm-sales-v95-receipt-dropdown-and-safety";
 
 const CORE_LOCAL_ASSETS = [
   "./",
@@ -75,7 +75,7 @@ self.addEventListener("activate", (event) => {
     caches.keys().then((cacheNames) =>
       Promise.all(
         cacheNames.map((cacheName) => {
-          if (cacheName !== CACHE_NAME || !cacheName.includes("v95")) {
+          if (cacheName !== CACHE_NAME) {
             return caches.delete(cacheName);
           }
         })
