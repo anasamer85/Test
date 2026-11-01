@@ -1,3 +1,28 @@
+
+function getReceiptDropdownHtml(rId, dayNum) {
+  const safeRId = escXmlStr(rId);
+  const dNum = Number(dayNum) || appState.currentDay || 1;
+  return `
+    <div class="relative inline-block universal-export-dropdown ml-1">
+      <button type="button" data-receipt-dropdown-toggle="${safeRId}_${dNum}" class="px-2 py-1 rounded-lg bg-indigo-800 hover:bg-indigo-700 text-white font-extrabold text-[10px] shadow-sm transition inline-flex items-center gap-1 border border-indigo-400" title="خيارات بون الميزان (طباعة، صورة، PDF)">
+        <span>⚙️</span><span>خيارات البون</span><span class="text-[9px]">▾</span>
+      </button>
+      <div data-receipt-dropdown-menu="${safeRId}_${dNum}" class="hidden absolute left-0 mt-1.5 w-40 bg-white text-slate-900 rounded-xl shadow-2xl border-2 border-slate-200 py-1.5 z-50 text-right">
+        <button type="button" data-receipt-action="print" data-receipt-id="${safeRId}" data-receipt-day="${dNum}" class="w-full px-3 py-1.5 text-xs font-extrabold text-indigo-950 hover:bg-indigo-50 flex items-center gap-2 transition text-right">
+          <span>🖨️</span><span>طباعة البون</span>
+        </button>
+        <button type="button" data-receipt-action="img" data-receipt-id="${safeRId}" data-receipt-day="${dNum}" class="w-full px-3 py-1.5 text-xs font-extrabold text-teal-950 hover:bg-teal-50 flex items-center gap-2 transition text-right">
+          <span>🖼️</span><span>حفظ صورة (PNG)</span>
+        </button>
+        <button type="button" data-receipt-action="pdf" data-receipt-id="${safeRId}" data-receipt-day="${dNum}" class="w-full px-3 py-1.5 text-xs font-extrabold text-rose-950 hover:bg-rose-50 flex items-center gap-2 transition text-right">
+          <span>📄</span><span>تصدير PDF</span>
+        </button>
+      </div>
+    </div>
+  `;
+}
+
+
 // =========================================================================
 // MODULE 6: UI RENDERING, TABLE FILTERS, LITE MODE & CONTROLLERS (js/ui-controllers.js — v91)
 // =========================================================================
@@ -219,13 +244,7 @@ function renderDailyView() {
             ? '<span class="text-amber-800 font-extrabold text-[11px]">⏳ بانتظار وزنة 2</span>'
             : (r.isDebtCollectionOnly ? '<span class="text-teal-800 font-extrabold text-[10px]">💵 سند تحصيل</span>' : fmtInt(r.w2)));
       const showReceiptBtn = Boolean(excelTableState && excelTableState.showScaleReceiptButtons);
-      const receiptBtnHtml = showReceiptBtn
-        ? `<span class="inline-flex items-center gap-0.5 ml-1 bg-indigo-50 p-0.5 rounded-lg border border-indigo-200">
-            <button type="button" data-print-receipt="${safeId}" data-receipt-day="${d}" class="px-1.5 py-0.5 rounded bg-indigo-800 text-white font-extrabold hover:bg-indigo-700 text-[10px] shadow-sm" title="طباعة كارتة/بون ميزان (3 نسخ في ورقة واحدة)">🖨️ بون</button>
-            <button type="button" data-export-receipt-img="${safeId}" data-receipt-day="${d}" class="px-1.5 py-0.5 rounded bg-teal-700 text-white font-extrabold hover:bg-teal-600 text-[10px] shadow-sm" title="حفظ كارتة/بون الميزان كصورة PNG عالية الدقة">🖼️ صورة</button>
-            <button type="button" data-export-receipt-pdf="${safeId}" data-receipt-day="${d}" class="px-1.5 py-0.5 rounded bg-rose-700 text-white font-extrabold hover:bg-rose-600 text-[10px] shadow-sm" title="حفظ كارتة/بون الميزان كملف PDF">📄 PDF</button>
-          </span>`
-        : '';
+      const receiptBtnHtml = showReceiptBtn ? getReceiptDropdownHtml(safeId, d) : '';
       const auditBadgeHtml = renderAuditTrailBadgeHtml(r);
       const actionCellHtml = !canEditSalesToday
         ? `${auditBadgeHtml}${receiptBtnHtml}<span class="text-slate-500 text-[11px] font-bold">${dayLocked ? '🔒 يوم معتمد ومقفل' : '🔒 عرض فقط'}</span>`
@@ -437,11 +456,7 @@ function renderDailyView() {
           <td class="p-1.5 border text-right text-[11px] font-bold ${isPreWeighing ? 'text-teal-950' : ''}">${totalDepositAmt > 0 ? `💰 عهدة/نقدي: ${fmtMoney(totalDepositAmt)} ج.م` : escXmlStr(item.notes || 'بانتظار الوزنة الثانية')}</td>
           <td class="p-1 border text-center whitespace-nowrap">
             ${renderAuditTrailBadgeHtml(item)}
-            ${excelTableState && excelTableState.showScaleReceiptButtons ? `<span class="inline-flex items-center gap-0.5 ml-1 bg-indigo-50 p-0.5 rounded-lg border border-indigo-200">
-              <button type="button" data-print-receipt="${safePendId}" data-receipt-day="${d}" class="px-1.5 py-0.5 rounded bg-indigo-800 hover:bg-indigo-700 text-white font-extrabold text-[10px] shadow-sm" title="طباعة كارتة/بون ميزان (3 نسخ في ورقة واحدة)">🖨️ بون</button>
-              <button type="button" data-export-receipt-img="${safePendId}" data-receipt-day="${d}" class="px-1.5 py-0.5 rounded bg-teal-700 hover:bg-teal-600 text-white font-extrabold text-[10px] shadow-sm" title="حفظ كارتة/بون الميزان كصورة PNG">🖼️ صورة</button>
-              <button type="button" data-export-receipt-pdf="${safePendId}" data-receipt-day="${d}" class="px-1.5 py-0.5 rounded bg-rose-700 hover:bg-rose-600 text-white font-extrabold text-[10px] shadow-sm" title="حفظ كارتة/بون الميزان كملف PDF">📄 PDF</button>
-            </span>` : ''}
+            ${excelTableState && excelTableState.showScaleReceiptButtons ? getReceiptDropdownHtml(safePendId, d) : ''}
             <button type="button" data-recall-pending="${safePendId}" class="px-2 py-0.5 rounded-lg ${isPreWeighing ? 'bg-teal-700 hover:bg-teal-600' : 'bg-emerald-600 hover:bg-emerald-500'} text-white font-extrabold text-[11px] ml-1 shadow-sm">
               ${isPreWeighing ? '💰 استرجاع للميزان' : '🔄 استرجاع'}
             </button>
@@ -2079,11 +2094,7 @@ function renderMerchantDrillDownModal() {
         <td class="p-2 border text-right text-[11px] font-bold text-purple-900">${escXmlStr(notesCellTxt)}</td>
         <td class="p-1.5 border text-center print-hide-col whitespace-nowrap">
           ${renderAuditTrailBadgeHtml(r)}
-          ${excelTableState && excelTableState.showScaleReceiptButtons ? `<span class="inline-flex items-center gap-0.5 ml-1 bg-indigo-50 p-0.5 rounded-lg border border-indigo-200">
-            <button type="button" data-print-receipt="${safeMovId}" data-receipt-day="${r.dayNum}" class="px-1.5 py-0.5 rounded bg-indigo-800 hover:bg-indigo-700 text-white font-extrabold text-[10px] whitespace-nowrap shadow-sm" title="طباعة كارتة/بون ميزان (3 نسخ في ورقة واحدة)">🖨️ بون</button>
-            <button type="button" data-export-receipt-img="${safeMovId}" data-receipt-day="${r.dayNum}" class="px-1.5 py-0.5 rounded bg-teal-700 hover:bg-teal-600 text-white font-extrabold text-[10px] whitespace-nowrap shadow-sm" title="حفظ كارتة/بون الميزان كصورة PNG">🖼️ صورة</button>
-            <button type="button" data-export-receipt-pdf="${safeMovId}" data-receipt-day="${r.dayNum}" class="px-1.5 py-0.5 rounded bg-rose-700 hover:bg-rose-600 text-white font-extrabold text-[10px] whitespace-nowrap shadow-sm" title="حفظ كارتة/بون الميزان كملف PDF">📄 PDF</button>
-          </span>` : ''}
+          ${excelTableState && excelTableState.showScaleReceiptButtons ? getReceiptDropdownHtml(safeMovId, r.dayNum) : ''}
           <button type="button" data-modal-jump-day="${r.dayNum}" class="px-2 py-1 rounded-lg bg-blue-100 hover:bg-blue-200 text-blue-900 font-extrabold text-[11px] whitespace-nowrap">
             📂 يوم ${r.dayNum}
           </button>
@@ -3229,12 +3240,7 @@ function renderLiteFieldModeComponents(dayNum, summary, canEditSalesToday, dayLo
         <div class="flex items-center justify-between gap-2 flex-wrap pt-1 border-t border-slate-100">
           <div class="flex items-center gap-1 flex-wrap">
             ${auditBadge}
-            <button type="button" data-print-receipt="${safeId}" data-receipt-day="${dayNum}" class="px-2.5 py-1 rounded-lg bg-indigo-800 hover:bg-indigo-700 text-white font-extrabold text-[11px] shadow-sm">
-              🖨️ بون
-            </button>
-            <button type="button" data-export-receipt-img="${safeId}" data-receipt-day="${dayNum}" class="px-2 py-1 rounded-lg bg-teal-700 hover:bg-teal-600 text-white font-extrabold text-[11px] shadow-sm">
-              🖼️ صورة
-            </button>
+            ${excelTableState && excelTableState.showScaleReceiptButtons ? getReceiptDropdownHtml(safeId, dayNum) : ''}
           </div>
           <div class="flex items-center gap-1.5">
             ${actionsHtml}
@@ -4155,7 +4161,7 @@ function initFarmSalesApp() {
     if (btnInstallPwa) btnInstallPwa.classList.add("hidden");
     deferredPwaPrompt = null;
   });
-  const ACTIVE_PWA_CACHE_NAME = 'farm-sales-v93-universal-export';
+  const ACTIVE_PWA_CACHE_NAME = 'farm-sales-v95-receipt-dropdown';
 
   // Force app hard reload via Service Worker update lifecycle
   async function forceAppHardReload() {
@@ -6360,6 +6366,8 @@ function initFarmSalesApp() {
       if (!targetBtn) return;
       const printRecBtn = e.target.closest('[data-print-receipt]');
       if (printRecBtn) {
+        e.preventDefault();
+        e.stopPropagation();
         const sId = printRecBtn.getAttribute('data-print-receipt');
         const sDay = Number(printRecBtn.getAttribute('data-receipt-day')) || appState.currentDay || 1;
         if (sId) triggerTablePrint(`scaleReceipt:${sDay}:${sId}`);
@@ -6367,9 +6375,20 @@ function initFarmSalesApp() {
       }
       const expImgRecBtn = e.target.closest('[data-export-receipt-img]');
       if (expImgRecBtn) {
+        e.preventDefault();
+        e.stopPropagation();
         const sId = expImgRecBtn.getAttribute('data-export-receipt-img');
         const sDay = Number(expImgRecBtn.getAttribute('data-receipt-day')) || appState.currentDay || 1;
         if (sId) exportScaleReceiptAsImageOrPdf(sId, sDay, 'png');
+        return;
+      }
+      const expPdfRecBtn = e.target.closest('[data-export-receipt-pdf]');
+      if (expPdfRecBtn) {
+        e.preventDefault();
+        e.stopPropagation();
+        const sId = expPdfRecBtn.getAttribute('data-export-receipt-pdf');
+        const sDay = Number(expPdfRecBtn.getAttribute('data-receipt-day')) || appState.currentDay || 1;
+        if (sId) exportScaleReceiptAsImageOrPdf(sId, sDay, 'pdf');
         return;
       }
       if (!hasPermission('sales') || isDayLocked(appState.currentDay)) {
@@ -7183,6 +7202,7 @@ function initFarmSalesApp() {
     const printRecBtn = e.target.closest('[data-print-receipt]');
     if (printRecBtn) {
       e.preventDefault();
+      e.stopPropagation();
       const sId = printRecBtn.getAttribute('data-print-receipt');
       const sDay = Number(printRecBtn.getAttribute('data-receipt-day')) || appState.currentDay || 1;
       if (sId) triggerTablePrint(`scaleReceipt:${sDay}:${sId}`);
@@ -7191,6 +7211,7 @@ function initFarmSalesApp() {
     const expImgRecBtn = e.target.closest('[data-export-receipt-img]');
     if (expImgRecBtn) {
       e.preventDefault();
+      e.stopPropagation();
       const sId = expImgRecBtn.getAttribute('data-export-receipt-img');
       const sDay = Number(expImgRecBtn.getAttribute('data-receipt-day')) || appState.currentDay || 1;
       if (sId) exportScaleReceiptAsImageOrPdf(sId, sDay, 'png');
@@ -7199,6 +7220,7 @@ function initFarmSalesApp() {
     const expPdfRecBtn = e.target.closest('[data-export-receipt-pdf]');
     if (expPdfRecBtn) {
       e.preventDefault();
+      e.stopPropagation();
       const sId = expPdfRecBtn.getAttribute('data-export-receipt-pdf');
       const sDay = Number(expPdfRecBtn.getAttribute('data-receipt-day')) || appState.currentDay || 1;
       if (sId) exportScaleReceiptAsImageOrPdf(sId, sDay, 'pdf');
@@ -8185,6 +8207,7 @@ function initFarmSalesApp() {
     const printRecBtn = e.target.closest('[data-print-receipt]');
     if (printRecBtn) {
       e.preventDefault();
+      e.stopPropagation();
       const sId = printRecBtn.getAttribute('data-print-receipt');
       const sDay = Number(printRecBtn.getAttribute('data-receipt-day')) || appState.currentDay || 1;
       if (sId) triggerTablePrint(`scaleReceipt:${sDay}:${sId}`);
@@ -8193,6 +8216,7 @@ function initFarmSalesApp() {
     const expImgRecBtn = e.target.closest('[data-export-receipt-img]');
     if (expImgRecBtn) {
       e.preventDefault();
+      e.stopPropagation();
       const sId = expImgRecBtn.getAttribute('data-export-receipt-img');
       const sDay = Number(expImgRecBtn.getAttribute('data-receipt-day')) || appState.currentDay || 1;
       if (sId) exportScaleReceiptAsImageOrPdf(sId, sDay, 'png');
@@ -8201,6 +8225,7 @@ function initFarmSalesApp() {
     const expPdfRecBtn = e.target.closest('[data-export-receipt-pdf]');
     if (expPdfRecBtn) {
       e.preventDefault();
+      e.stopPropagation();
       const sId = expPdfRecBtn.getAttribute('data-export-receipt-pdf');
       const sDay = Number(expPdfRecBtn.getAttribute('data-receipt-day')) || appState.currentDay || 1;
       if (sId) exportScaleReceiptAsImageOrPdf(sId, sDay, 'pdf');
@@ -8209,6 +8234,7 @@ function initFarmSalesApp() {
     const printTblBtn = e.target.closest('[data-print-table]');
     if (printTblBtn) {
       e.preventDefault();
+      e.stopPropagation();
       const tblKey = printTblBtn.getAttribute('data-print-table');
       if (tblKey) triggerTablePrint(tblKey);
     }
@@ -8522,7 +8548,7 @@ function initFarmSalesApp() {
     './js/accounting.js?v=90',
     './js/storage-sync.js?v=90',
     './js/excel-engine.js?v=90',
-    './js/print-export.js?v=90',
+    './js/print-export.js?v=95',
     './js/ui-controllers.js?v=90'
   ];
 
@@ -9518,6 +9544,40 @@ async function universalExportTable(tableId, format = 'excel') {
 window.universalExportTable = universalExportTable;
 
 document.addEventListener('click', (e) => {
+  const receiptToggleBtn = e.target.closest('[data-receipt-dropdown-toggle]');
+  if (receiptToggleBtn) {
+    e.preventDefault();
+    e.stopPropagation();
+    const targetId = receiptToggleBtn.getAttribute('data-receipt-dropdown-toggle');
+    const targetMenu = document.querySelector(`[data-receipt-dropdown-menu="${targetId}"]`);
+    const wasHidden = targetMenu ? targetMenu.classList.contains('hidden') : true;
+    closeAllUniversalExportDropdowns();
+    if (targetMenu && wasHidden) {
+      targetMenu.classList.remove('hidden');
+    }
+    return;
+  }
+
+  const receiptActionBtn = e.target.closest('[data-receipt-action]');
+  if (receiptActionBtn) {
+    e.preventDefault();
+    e.stopPropagation();
+    closeAllUniversalExportDropdowns();
+    const action = receiptActionBtn.getAttribute('data-receipt-action');
+    const sId = receiptActionBtn.getAttribute('data-receipt-id');
+    const sDay = Number(receiptActionBtn.getAttribute('data-receipt-day')) || appState.currentDay || 1;
+    if (sId) {
+      if (action === 'print') {
+        triggerTablePrint(`scaleReceipt:${sDay}:${sId}`);
+      } else if (action === 'img') {
+        exportScaleReceiptAsImageOrPdf(sId, sDay, 'png');
+      } else if (action === 'pdf') {
+        exportScaleReceiptAsImageOrPdf(sId, sDay, 'pdf');
+      }
+    }
+    return;
+  }
+
   const toggleBtn = e.target.closest('[data-export-dropdown-toggle]');
   if (toggleBtn) {
     e.preventDefault();
